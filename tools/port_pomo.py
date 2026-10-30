@@ -73,6 +73,13 @@ rep('.sync.on b{background:var(--tree)} .sync.err b{background:var(--pri1)}',
     '.sync.on b{background:var(--tree)} .sync.err b{background:var(--pri1)}\n.sync.tap{cursor:pointer;padding:4px 10px;border-radius:999px}.sync.tap:hover{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}.sync.login b{background:var(--focus)}')
 
 rep('.modal .box p{margin:0;font-size:14.5px}','.modal .box p{margin:0;font-size:14.5px;white-space:pre-line}')
+# settings: denser rows, full width, masonry columns (no holes between panels of different heights)
+rep('.pr input[type=range]{width:130px;accent-color:var(--focus)}','''.pr input[type=range]{width:130px;accent-color:var(--focus)}
+.pgrid,.prefhead{max-width:1180px}
+@media(min-width:900px){.pgrid{display:block;columns:2;column-gap:14px}.pgrid>*{break-inside:avoid;margin-bottom:14px}}
+@media(min-width:1140px){.pgrid{columns:3}}
+.pgrid .panel{padding:12px 16px}.pgrid .ph{margin-bottom:4px}
+.pr{padding:6px 0;line-height:1.45}.pr input,.pr select{padding:5px 9px}''')
 # settings row + importer: 学習スケジューラー (root index.html) -> Pomo Timer
 rep("""<div class="pr"><span>バックアップ<small>JSONファイルで保存・復元</small></span>""",
 """${window.PomoCloud?'<div class="pr"><span>学習スケジューラーから引き継ぐ<small>復習の予定・未完了のタスク・メモを取り込みます（何度押しても重複しません）</small></span><button class="btn" id="d_sched">引き継ぐ</button></div>':''}<div class="pr"><span>バックアップ<small>JSONファイルで保存・復元</small></span>""")
