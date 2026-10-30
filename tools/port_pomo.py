@@ -31,6 +31,7 @@ window.PomoCloud=(()=>{
     ready,
     get user(){return auth.currentUser},
     col(uid){return fs.collection('pomo/'+uid+'/docs')},
+    async schedDoc(uid){const d=await fs.doc('users/'+uid).get();return d.exists?d.data():null},
     signIn(){return auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())},
     signOut(){return auth.signOut()}};
 })();
@@ -70,6 +71,47 @@ rep("""Sync.init();""","""if(window.PomoCloud&&!(window.claude&&window.claude.us
 Sync.init();""")
 rep('.sync.on b{background:var(--tree)} .sync.err b{background:var(--pri1)}',
     '.sync.on b{background:var(--tree)} .sync.err b{background:var(--pri1)}\n.sync.tap{cursor:pointer;padding:4px 10px;border-radius:999px}.sync.tap:hover{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}.sync.login b{background:var(--focus)}')
+
+rep('.modal .box p{margin:0;font-size:14.5px}','.modal .box p{margin:0;font-size:14.5px;white-space:pre-line}')
+# settings: denser rows, full width, masonry columns (no holes between panels of different heights)
+rep('.pr input[type=range]{width:130px;accent-color:var(--focus)}','''.pr input[type=range]{width:130px;accent-color:var(--focus)}
+.pgrid,.prefhead{max-width:1180px}
+@media(min-width:900px){.pgrid{display:block;columns:2;column-gap:14px}.pgrid>*{break-inside:avoid;margin-bottom:14px}}
+@media(min-width:1140px){.pgrid{columns:3}}
+.pgrid .panel{padding:12px 16px}.pgrid .ph{margin-bottom:4px}
+.pr{padding:6px 0;line-height:1.45}.pr input,.pr select{padding:5px 9px}''')
+# settings row + importer: 学習スケジューラー (root index.html) -> Pomo Timer
+rep("""<div class="pr"><span>バックアップ<small>JSONファイルで保存・復元</small></span>""",
+"""${window.PomoCloud?'<div class="pr"><span>学習スケジューラーから引き継ぐ<small>復習の予定・未完了のタスク・メモを取り込みます（何度押しても重複しません）</small></span><button class="btn" id="d_sched">引き継ぐ</button></div>':''}<div class="pr"><span>バックアップ<small>JSONファイルで保存・復元</small></span>""")
+rep("""  if(t.id==='d_login'){cloudLogin();return}""","""  if(t.id==='d_login'){cloudLogin();return}
+  if(t.id==='d_sched'){importSched();return}""")
+rep("""async function cloudLogin(){""","""/* 学習スケジューラー → Pomo Timer. Source: Firestore users/{uid} when signed in, else this origin's localStorage.
+   tasks{name,reviews[],doneDates[],startDate} -> st.reviews, unfinished todos{name,date} -> st.tasks, memo -> st.memos */
+async function loadSched(){let d=null;
+  if(window.PomoCloud&&PomoCloud.user){try{d=await PomoCloud.schedDoc(PomoCloud.user.uid)}catch(e){}}
+  if(!d){try{const g=k=>JSON.parse(localStorage.getItem(k)||'null');const tasks=g('myTasks'),todos=g('myTodos'),memo=localStorage.getItem('myMemo');if(tasks||todos||memo)d={tasks,todos,memo}}catch(e){}}
+  return d}
+function schedPlan(d){const today=todayKey(),seen=new Set();
+  st.reviews.forEach(x=>x.fromSched&&seen.add(x.fromSched));st.tasks.forEach(x=>x.fromSched&&seen.add(x.fromSched));st.memos.forEach(x=>x.fromSched&&seen.add(x.fromSched));
+  const days=(a,b)=>Math.round((k2d(b)-k2d(a))/86400000),at=k=>k2d(k).getTime()+12*3600000;
+  const rv=[],tk=[],mm=[];
+  for(const t of (d.tasks||[])){if(!t||!t.name)continue;const key='sched-r-'+t.id;if(seen.has(key))continue;
+    const done=[...new Set(t.doneDates||[])].sort(),last=done[done.length-1]||t.startDate||today;
+    const next=(t.reviews||[]).filter(x=>x>=today&&!done.includes(x)).sort()[0];
+    const ivl=Math.max(1,next?days(last,next):days(t.startDate||last,(t.reviews||[]).slice(-1)[0]||last)||30);
+    rv.push(newReview({title:t.name,fromSched:key,created:at(t.startDate||last),S:ivl,D:clampD(FSRS_W[4]),ivl,last:at(last),
+      due:next||addDays(last,ivl),lastRating:3,reps:done.length,paused:!next,log:done.map(x=>({d:x,at:at(x),r:3,ivl:0}))}))}
+  for(const t of (d.todos||[])){if(!t||!t.name||t.completed)continue;const key='sched-t-'+t.id;if(seen.has(key))continue;
+    tk.push(newTask({title:t.name,due:t.date||today,fromSched:key}))}
+  const memo=(d.memo||'').trim();if(memo&&!seen.has('sched-memo'))mm.push({id:'m-'+nid(),text:memo,at:Date.now(),ctx:'学習スケジューラーから',fromSched:'sched-memo'});
+  return {rv,tk,mm}}
+async function importSched(){const d=await loadSched();
+  if(!d){toast(PomoCloud.user?'学習スケジューラーのデータが見つかりませんでした':'学習スケジューラーのデータが見つかりません。同じ Google アカウントでログインしてから試してください');return}
+  const p=schedPlan(d),on=p.rv.filter(x=>!x.paused).length;
+  if(!p.rv.length&&!p.tk.length&&!p.mm.length){toast('引き継ぐものはありません（すべて取り込み済みです）');return}
+  confirmBox(`学習スケジューラーから取り込みます。\\n・復習 ${p.rv.length}件（予定あり ${on}件／予定が終わったもの ${p.rv.length-on}件は一時停止で保存）\\n・未完了のタスク ${p.tk.length}件\\n・メモ ${p.mm.length}件\\n学習時間の記録・連続日数は引き継がれません。`,'取り込む',()=>{
+    st.reviews.push(...p.rv);st.tasks.push(...p.tk);st.memos.push(...p.mm);save();renderPrefs();toast(`取り込みました（復習 ${p.rv.length}・タスク ${p.tk.length}・メモ ${p.mm.length}）`)})}
+async function cloudLogin(){""")
 
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))

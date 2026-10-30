@@ -21,6 +21,7 @@ window.PomoCloud=(()=>{
     ready,
     get user(){return auth.currentUser},
     col(uid){return fs.collection('pomo/'+uid+'/docs')},
+    async schedDoc(uid){const d=await fs.doc('users/'+uid).get();return d.exists?d.data():null},
     signIn(){return auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())},
     signOut(){return auth.signOut()}};
 })();
@@ -385,6 +386,11 @@ ul.tl{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:colu
 .pr input[type=number]{width:74px;text-align:center}
 .pr select{max-width:160px}
 .pr input[type=range]{width:130px;accent-color:var(--focus)}
+.pgrid,.prefhead{max-width:1180px}
+@media(min-width:900px){.pgrid{display:block;columns:2;column-gap:14px}.pgrid>*{break-inside:avoid;margin-bottom:14px}}
+@media(min-width:1140px){.pgrid{columns:3}}
+.pgrid .panel{padding:12px 16px}.pgrid .ph{margin-bottom:4px}
+.pr{padding:6px 0;line-height:1.45}.pr input,.pr select{padding:5px 9px}
 .sw{position:relative;width:42px;height:24px;flex:none}
 .sw input{opacity:0;width:0;height:0;position:absolute}
 .sw span{position:absolute;inset:0;border-radius:99px;background:var(--line);transition:.2s}
@@ -430,7 +436,7 @@ ul.tl{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:colu
 @media(max-width:760px){.toast{bottom:calc(88px + env(safe-area-inset-bottom,0px))}}
 .modal{position:fixed;inset:0;z-index:45;background:rgba(8,12,10,.45);display:grid;place-items:center;padding:16px}
 .modal .box{background:var(--surface);border-radius:16px;padding:20px;max-width:400px;width:100%;display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 32px);overflow-y:auto}
-.modal .box p{margin:0;font-size:14.5px}
+.modal .box p{margin:0;font-size:14.5px;white-space:pre-line}
 .modal .acts{display:flex;justify-content:flex-end;gap:8px}
 .sdlg .box{max-width:480px}
 .sdlg h3{font-family:var(--display);margin:0;font-size:19px}
@@ -4671,6 +4677,32 @@ $('#shClose').onclick=()=>$('#shdlg').hidden=true;$('#shdlg').onclick=e=>{if(e.t
 const LIBS={h2c:'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',pdf:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',xlsx:'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'};
 const libP={};
 function loadLib(k){return libP[k]||(libP[k]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=LIBS[k];s.onload=()=>res();s.onerror=()=>{delete libP[k];rej(new Error('load '+k))};document.head.appendChild(s)}))}
+/* 学習スケジューラー → Pomo Timer. Source: Firestore users/{uid} when signed in, else this origin's localStorage.
+   tasks{name,reviews[],doneDates[],startDate} -> st.reviews, unfinished todos{name,date} -> st.tasks, memo -> st.memos */
+async function loadSched(){let d=null;
+  if(window.PomoCloud&&PomoCloud.user){try{d=await PomoCloud.schedDoc(PomoCloud.user.uid)}catch(e){}}
+  if(!d){try{const g=k=>JSON.parse(localStorage.getItem(k)||'null');const tasks=g('myTasks'),todos=g('myTodos'),memo=localStorage.getItem('myMemo');if(tasks||todos||memo)d={tasks,todos,memo}}catch(e){}}
+  return d}
+function schedPlan(d){const today=todayKey(),seen=new Set();
+  st.reviews.forEach(x=>x.fromSched&&seen.add(x.fromSched));st.tasks.forEach(x=>x.fromSched&&seen.add(x.fromSched));st.memos.forEach(x=>x.fromSched&&seen.add(x.fromSched));
+  const days=(a,b)=>Math.round((k2d(b)-k2d(a))/86400000),at=k=>k2d(k).getTime()+12*3600000;
+  const rv=[],tk=[],mm=[];
+  for(const t of (d.tasks||[])){if(!t||!t.name)continue;const key='sched-r-'+t.id;if(seen.has(key))continue;
+    const done=[...new Set(t.doneDates||[])].sort(),last=done[done.length-1]||t.startDate||today;
+    const next=(t.reviews||[]).filter(x=>x>=today&&!done.includes(x)).sort()[0];
+    const ivl=Math.max(1,next?days(last,next):days(t.startDate||last,(t.reviews||[]).slice(-1)[0]||last)||30);
+    rv.push(newReview({title:t.name,fromSched:key,created:at(t.startDate||last),S:ivl,D:clampD(FSRS_W[4]),ivl,last:at(last),
+      due:next||addDays(last,ivl),lastRating:3,reps:done.length,paused:!next,log:done.map(x=>({d:x,at:at(x),r:3,ivl:0}))}))}
+  for(const t of (d.todos||[])){if(!t||!t.name||t.completed)continue;const key='sched-t-'+t.id;if(seen.has(key))continue;
+    tk.push(newTask({title:t.name,due:t.date||today,fromSched:key}))}
+  const memo=(d.memo||'').trim();if(memo&&!seen.has('sched-memo'))mm.push({id:'m-'+nid(),text:memo,at:Date.now(),ctx:'学習スケジューラーから',fromSched:'sched-memo'});
+  return {rv,tk,mm}}
+async function importSched(){const d=await loadSched();
+  if(!d){toast(PomoCloud.user?'学習スケジューラーのデータが見つかりませんでした':'学習スケジューラーのデータが見つかりません。同じ Google アカウントでログインしてから試してください');return}
+  const p=schedPlan(d),on=p.rv.filter(x=>!x.paused).length;
+  if(!p.rv.length&&!p.tk.length&&!p.mm.length){toast('引き継ぐものはありません（すべて取り込み済みです）');return}
+  confirmBox(`学習スケジューラーから取り込みます。\n・復習 ${p.rv.length}件（予定あり ${on}件／予定が終わったもの ${p.rv.length-on}件は一時停止で保存）\n・未完了のタスク ${p.tk.length}件\n・メモ ${p.mm.length}件\n学習時間の記録・連続日数は引き継がれません。`,'取り込む',()=>{
+    st.reviews.push(...p.rv);st.tasks.push(...p.tk);st.memos.push(...p.mm);save();renderPrefs();toast(`取り込みました（復習 ${p.rv.length}・タスク ${p.tk.length}・メモ ${p.mm.length}）`)})}
 async function cloudLogin(){try{await PomoCloud.signIn();location.reload()}catch(e){if(e&&e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request')toast('ログインできませんでした（'+(e.code||e.message||'')+'）')}}
 async function saveFile(name,data){try{const dl=window.claude&&window.claude.use?await claude.use('downloads'):null;if(dl){await dl.save({filename:name,data});toast('保存しました: '+name);return true}}catch(e){if(e&&e.code==='declined')return false;if(e&&e.code&&e.code!=='unavailable'){toast('保存できませんでした（'+e.code+'）');return false}}
   try{const blob=data instanceof Blob?data:new Blob([data]);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);return true}catch(e){toast('この環境では保存できません');return false}}
@@ -5059,7 +5091,7 @@ function renderPrefs(){setTimeout(filterPrefs,0);const A={tomato:'トマト',oce
     <form class="qadd" id="pjAdd" style="margin-top:8px"><input id="pjIn" placeholder="新しいカテゴリー名"><button class="btn">追加</button></form></div>
   <div class="panel"><div class="ph"><h2>データ</h2></div>
     <div class="pr"><span>同期<small>${Sync.col?(window.PomoCloud&&PomoCloud.user?esc(PomoCloud.user.email||'')+' でログイン中。同じアカウントの端末どうしで自動同期しています':'同じアカウントで開いた端末どうしで自動同期しています'):(window.PomoCloud?'この端末のブラウザに保存中。Google でログインすると端末間で同期されます':'この端末のブラウザに保存中。claude.ai にサインインして開くと同期されます')}</small></span>${window.PomoCloud?(PomoCloud.user?'<button class="btn" id="d_logout">ログアウト</button>':'<button class="btn accent" id="d_login">Google でログイン</button>'):''}</div>
-    <div class="pr"><span>バックアップ<small>JSONファイルで保存・復元</small></span><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn" id="d_export">書き出し</button><button class="btn" id="d_import">読み込み</button></span></div>
+    ${window.PomoCloud?'<div class="pr"><span>学習スケジューラーから引き継ぐ<small>復習の予定・未完了のタスク・メモを取り込みます（何度押しても重複しません）</small></span><button class="btn" id="d_sched">引き継ぐ</button></div>':''}<div class="pr"><span>バックアップ<small>JSONファイルで保存・復元</small></span><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn" id="d_export">書き出し</button><button class="btn" id="d_import">読み込み</button></span></div>
     <div class="pr"><span>学習の記録をCSVで書き出し<small>Excel や Googleスプレッドシートで開けます</small></span><button class="btn" id="d_csv">CSV</button></div>
     <div class="pr"><span>見本（例）のデータを削除<small>「（例）」と付いた教材・タスク・目標・復習をまとめて削除</small></span><button class="btn" id="d_examples">削除</button></div>
     <div class="pr"><span>学習の記録を消去<small>教材とタスクは残ります</small></span><button class="btn danger" id="d_resetLog">消去</button></div>
@@ -5093,6 +5125,7 @@ $('#prefs').addEventListener('click',e=>{const t=e.target.closest('button');if(!
     confirmBox(`カテゴリー「${p.name}」を削除しますか？教材とタスクは「カテゴリーなし」になります。`,'削除',()=>{st.subjects=st.subjects.filter(x=>x!==p);st.books.forEach(b=>{if(b.subject===p.id)b.subject=null});st.tasks.forEach(x=>{if(x.subject===p.id)x.subject=null});save();renderPrefs()})}
   if(t.id==='d_export')exportData();if(t.id==='d_import')$('#importFile').click();
   if(t.id==='d_login'){cloudLogin();return}
+  if(t.id==='d_sched'){importSched();return}
   if(t.id==='d_logout'){confirmBox('ログアウトしますか？この端末に保存されたデータも消去されます（クラウドのデータは残ります）。','ログアウト',async()=>{await PomoCloud.signOut();for(const k of Object.keys(localStorage))if(k.startsWith('pf2_'))localStorage.removeItem(k);location.reload()});return}
   if(t.id==='d_resetLog')confirmBox('学習の記録をすべて消去しますか？元に戻せません。','消去',()=>{st.resetAt=Date.now();for(const k in months){months[k]=[];saveMonth(k)}st.books.forEach(b=>b.pos=b.mode==='range'?0:b.pos);save();toast('記録を消去しました')});
   if(t.id==='d_csv'){exportCSV();return}
