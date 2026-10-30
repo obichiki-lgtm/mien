@@ -1307,7 +1307,7 @@ const ICON={play:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>'};
 
 /* ================= state ================= */
-const DEF={calGroup:'none',calGroupMin:4,focus:25,short:5,long:15,interval:4,autoBreak:true,autoFocus:false,dandori:true,overCap:60,notifyMode:'both',vibFocus:true,vibBreak:true,vibNag:true,vibClock:true,vibPatFocus:'long3',vibPatBreak:'short4',vibPatNag:'pulse',vibPatClock:'long3',vibRepFocus:1,vibRepBreak:1,vibRepNag:1,vibRepClock:2,vibNagEvery:20,goal:8,dayStart:0,weeklyGoalH:10,
+const DEF={pauseMax:3,calGroup:'none',calGroupMin:4,focus:25,short:5,long:15,interval:4,autoBreak:true,autoFocus:false,dandori:true,overCap:60,notifyMode:'both',vibFocus:true,vibBreak:true,vibNag:true,vibClock:true,vibPatFocus:'long3',vibPatBreak:'short4',vibPatNag:'pulse',vibPatClock:'long3',vibRepFocus:1,vibRepBreak:1,vibRepNag:1,vibRepClock:2,vibNagEvery:20,goal:8,dayStart:0,weeklyGoalH:10,
   alarmFocus:'bell',alarmBreak:'chime',alarmVol:.7,tick:'none',tickVol:.35,preNotice:0,
   noise:'none',mix:null,noiseVol:.8,noiseInBreak:false,strict:true,wake:true,accent:'tomato',
   focusRingSec:5,requireTask:'always',rvRetention:.9,rvMaxIvl:365,penalty:'tree',penGrace:1,penEvery:3,breakNag:true,nagCrescendo:true,nagMax:0,askRecord:true};
@@ -1565,10 +1565,10 @@ let wake=null;
 async function lockWake(){if(!S.wake||!navigator.wakeLock)return;try{wake=await navigator.wakeLock.request('screen')}catch(e){}}
 function releaseWake(){try{wake&&wake.release()}catch(e){}wake=null}
 
-function start(force){audio();if(T.running)return;
+function start(force){audio();if(T.running)return;if(T.pausedAt){T.pauseUsed=(T.pauseUsed||0)+(Date.now()-T.pausedAt)/1000;T.pausedAt=0}
   if(T.mode==='focus'&&!T.startedAt&&!force&&S.requireTask!=='off'&&(S.requireTask==='always'||!hasWhat())){openStartDlg('start');return}
   if(T.mode==='focus')endOverrun();
-  if(T.mode==='focus'&&!T.startedAt){T.brkFrom=0;T.brkSess=null;T.brkPend=null;T.startedAt=Date.now();T.int=0;T.segOff=0;T.segStart=T.startedAt;T.grp=nid();if(T.cycle%S.interval===0||!T.setStart)T.setStart=T.startedAt}
+  if(T.mode==='focus'&&!T.startedAt){T.pauseUsed=0;T.pausedAt=0;T.brkFrom=0;T.brkSess=null;T.brkPend=null;T.startedAt=Date.now();T.int=0;T.segOff=0;T.segStart=T.startedAt;T.grp=nid();if(T.cycle%S.interval===0||!T.setStart)T.setStart=T.startedAt}
   if(isCU())T.runRef=Date.now()-T.elapsed*1000;else T.endAt=Date.now()+T.remaining*1000;
   T.running=true;persistT();Noise.update();lockWake();renderTimer()}
 function pause(){if(!T.running)return;if(isCU())T.elapsed=elapsedCU();else T.remaining=Math.max(0,remain());T.running=false;persistT();Noise.update();releaseWake();renderTimer()}
@@ -1804,7 +1804,7 @@ function curLabel(){const w=whatText();return w.main||'いまの学習'}
 /* ▶ on a row: toggle pause for the current one; confirm before switching away from another */
 function rowPlay(kind,id){
   const cur=kind==='task'?(taskById(id)&&isCurTask(taskById(id))):isCurRv(id);
-  if(cur){if(T.running)pause();else start(true);return}
+  if(cur){if(T.running)userPause();else start(true);return}
   const go2=()=>kind==='task'?useTask(id,true):focusReview(id);
   if(inFocus()){const sec=segSec(),nm=kind==='task'?(taskById(id)||{}).title:(rvById(id)||{}).title;
     confirmBox(sec>=60?`いまの「${curLabel()}」（${fmtMin(Math.round(sec/60))}）を記録して、「${nm}」に切り替えますか？ タイマーはそのまま続きます。`:`「${nm}」に切り替えますか？（いまの分は1分未満なので記録しません）`,'記録して切り替える',()=>{go2();if(!T.running)start(true)});return}
@@ -4719,6 +4719,12 @@ const libP={};
 function loadLib(k){return libP[k]||(libP[k]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=LIBS[k];s.onload=()=>res();s.onerror=()=>{delete libP[k];rej(new Error('load '+k))};document.head.appendChild(s)}))}
 if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(()=>importSched(true),1200))}
 /*@cloud*/
+function pauseLeft(){const m=S.pauseMax??3;if(m==='none'||T.mode!=='focus'||!T.startedAt)return Infinity;return m*60-(T.pauseUsed||0)}
+function userPause(){const left=pauseLeft();
+  if(left<=0){toast((S.pauseMax??3)===0?'集中中は一時停止できない設定です（設定 > 集中中の一時停止）':'この集中では、一時停止できる時間を使い切りました');return}
+  pause();if(isFinite(left)){T.pausedAt=Date.now();persistT();toast(`一時停止中。あと ${fmt(left)} で自動的に再開します`)}}
+setInterval(()=>{const m=S.pauseMax??3;if(T.running||!T.pausedAt||m==='none'||T.mode!=='focus'||!T.startedAt)return;
+  if((T.pauseUsed||0)+(Date.now()-T.pausedAt)/1000>=m*60){start(true);toast('一時停止できる時間を過ぎたので、集中を再開しました')}},1000);
 const PET_IMG={'dog/shiba':['0','1','2','3','4','3_happy','3_sad','3_tired','3_focus']};
 function petImgSVG(p,lv,mood,cls){if(!p)return '';const have=PET_IMG[p.kind+'/'+p.v];if(!have)return '';
   const K=PETS[p.kind]||PETS.tree,V=K.v[p.v]||Object.values(K.v)[0],stage=petStage(lv);
@@ -5203,6 +5209,7 @@ function renderPrefs(){setTimeout(filterPrefs,0);const A={tomato:'トマト',oce
     <label class="pr">アラーム音量${rng('p_alarmVol',S.alarmVol)}</label><label class="pr">チクタク音${sel('p_tick',TICKS,S.tick)}</label><label class="pr">チクタク音量${rng('p_tickVol',S.tickVol)}</label>
     <div class="pr"><span>環境音<small>${esc(mixLabel())}</small></span><button class="btn" id="p_openMix">ミキサーを開く</button></div><label class="pr">環境音の音量${rng('p_noiseVol',S.noiseVol)}</label><label class="pr"><span>休憩中も環境音を流す</span>${swc('p_noiseInBreak',S.noiseInBreak)}</label></div>
   <div class="panel"><div class="ph"><h2>集中モード・表示</h2></div>
+    <label class="pr"><span>集中中の一時停止<small>1回の集中で一時停止できる合計時間。過ぎると自動で再開します</small></span>${sel('p_pauseMax',{0:'しない',1:'1分まで',3:'3分まで',5:'5分まで',none:'制限なし'},S.pauseMax??3)}</label>
     <label class="pr"><span>離席を記録<small>集中中に他のタブ・アプリへ移ると数えます</small></span>${swc('p_strict',S.strict)}</label>
     <label class="pr"><span>画面をスリープさせない</span>${swc('p_wake',S.wake)}</label>
     <label class="pr"><span>ライト／ダーク<small>右上の月のボタンでも切り替えられます</small></span>${sel('p_theme',{system:'端末に合わせる',light:'ライト',dark:'ダーク'},S.theme||'system')}</label>
@@ -5218,7 +5225,7 @@ function renderPrefs(){setTimeout(filterPrefs,0);const A={tomato:'トマト',oce
     <div class="pr"><span>学習の記録を消去<small>教材とタスクは残ります</small></span><button class="btn danger" id="d_resetLog">消去</button></div>
     <div class="pr"><span>すべて初期化</span><button class="btn danger" id="d_resetAll">初期化</button></div></div>`}
 const numKeys=['focus','short','long','interval','goal'],boolKeys=['autoBreak','autoFocus','vibFocus','vibBreak','vibNag','vibClock','noiseInBreak','strict','wake','breakNag','nagCrescendo','askRecord'],
-  selKeys=['theme','rvMaxIvl','preNotice','dayStart','alarmFocus','alarmBreak','tick','focusRingSec','nagMax','requireTask','penalty','penGrace','penEvery','dandori','overCap','notifyMode','vibPatFocus','vibPatBreak','vibPatNag','vibPatClock','vibRepFocus','vibRepBreak','vibRepNag','vibRepClock','vibNagEvery'],rngKeys=['alarmVol','tickVol','noiseVol'];
+  selKeys=['pauseMax','theme','rvMaxIvl','preNotice','dayStart','alarmFocus','alarmBreak','tick','focusRingSec','nagMax','requireTask','penalty','penGrace','penEvery','dandori','overCap','notifyMode','vibPatFocus','vibPatBreak','vibPatNag','vibPatClock','vibRepFocus','vibRepBreak','vibRepNag','vibRepClock','vibNagEvery'],rngKeys=['alarmVol','tickVol','noiseVol'];
 let prefQ='';function filterPrefs(){const q=prefQ.toLowerCase();$$('#prefs > .panel').forEach(p=>{const head=(p.querySelector('.ph')||{}).textContent||'';let any=false;
   [...p.children].forEach(ch=>{if(ch.classList.contains('ph'))return;const hit=!q||head.toLowerCase().includes(q)||ch.textContent.toLowerCase().includes(q);ch.style.display=hit?'':'none';if(hit)any=true});p.hidden=!!q&&!any&&!head.toLowerCase().includes(q)});
   const none=q&&!$$('#prefs > .panel').some(p=>!p.hidden);let m=$('#prefNone');if(!m){m=document.createElement('div');m.id='prefNone';m.className='empty';$('#prefs').after(m)}m.textContent=none?`「${prefQ}」に一致する設定はありません`:'';m.hidden=!none}
@@ -5315,7 +5322,7 @@ document.addEventListener('fullscreenchange',onFsChange);document.addEventListen
 $('#fs').addEventListener('click',e=>{if(e.target.closest('button,.fc'))return;const el=$('#fs');if(el.classList.contains('idle'))fsArm();else if(T.running){clearTimeout(fsIdleT);el.classList.add('idle')}});
 $('#fs').addEventListener('pointermove',e=>{if(e.pointerType==='mouse')fsArm()});
 $('#fsDark').onclick=()=>{const el=$('#fs');el.classList.toggle('dark');LS.set('fsDark',el.classList.contains('dark'));$('#fsDark').textContent=el.classList.contains('dark')?'通常の画面':'黒い画面';fsArm()};
-$('#bFs').onclick=enterFs;$('#fsExit').onclick=exitFs;$('#fsToggle').onclick=()=>T.running?pause():start();$('#fsSkip').onclick=skipT;
+$('#bFs').onclick=enterFs;$('#fsExit').onclick=exitFs;$('#fsToggle').onclick=()=>T.running?userPause():start();$('#fsSkip').onclick=skipT;
 $('#bNoise').onclick=()=>openMixer();
 
 /* ================= navigation ================= */
@@ -5330,8 +5337,8 @@ function renderView(){try{gameTick()}catch(e){}renderTimer();
 function renderAll(){const ae=document.activeElement;if(!$('#detail').hidden&&ae&&$('#drawer').contains(ae)){renderTimer();return}renderView()}
 $('#tabs').onclick=e=>{const b=e.target.closest('[data-v]');if(b)go(b.dataset.v)};
 $('#gearBtn').onclick=()=>go(view==='prefs'?'timer':'prefs');
-$('#mini').onclick=e=>{if(e.target.closest('#miniPP')){T.running?pause():start();return}if(view==='timer')window.scrollTo({top:0,behavior:'smooth'});else go('timer')};
-$('#bToggle').onclick=()=>T.running?pause():start();$('#bReset').onclick=resetT;$('#bSkip').onclick=skipT;$('#bPlus').onclick=()=>extend(5);$('#bFinish').onclick=finishCU;$('#bMemo').onclick=openMemo;$('#fsMemo').onclick=openMemo;$('#bRecNow').onclick=recordNow;$('#bEndSet').onclick=()=>{if(T.mode==='long'){endSet();return}confirmBox('このセットを終了して、次は新しいセット（集中'+S.interval+'回）から始めますか？','終了する',endSet)};
+$('#mini').onclick=e=>{if(e.target.closest('#miniPP')){T.running?userPause():start();return}if(view==='timer')window.scrollTo({top:0,behavior:'smooth'});else go('timer')};
+$('#bToggle').onclick=()=>T.running?userPause():start();$('#bReset').onclick=resetT;$('#bSkip').onclick=skipT;$('#bPlus').onclick=()=>extend(5);$('#bFinish').onclick=finishCU;$('#bMemo').onclick=openMemo;$('#fsMemo').onclick=openMemo;$('#bRecNow').onclick=recordNow;$('#bEndSet').onclick=()=>{if(T.mode==='long'){endSet();return}confirmBox('このセットを終了して、次は新しいセット（集中'+S.interval+'回）から始めますか？','終了する',endSet)};
 $$('.modes button').forEach(b=>b.onclick=()=>{const m=b.dataset.m;if(m===T.mode)return;guardSwitch(`「${LABEL[m]}」に切り替えますか？`,ab=>{pause();setMode(m,false,ab)})});
 $('#swKeep').onclick=swClose;$('#swCarry').onclick=()=>{const fn=swCarryFn;swClose();if(fn)fn()};$('#swRec').onclick=swKeepRecord;$('#swDrop').onclick=()=>{const fn=swFn;swClose();if(fn)fn(true)};$('#swdlg').onclick=e=>{if(e.target.id==='swdlg')swClose()};
 $$('.kinds button').forEach(b=>b.onclick=()=>setKind(b.dataset.k));
@@ -5339,7 +5346,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){if(!$('#daydlg').hidden&&$('#mvdlg').hidden&&$('#ocdlg').hidden&&$('#rvdlg').hidden&&$('#modal').hidden){closeDay();return}if(!$('#shdlg').hidden){$('#shdlg').hidden=true;return}if(!$('#memodlg').hidden){$('#memodlg').hidden=true;return}if(!$('#otdlg').hidden){finishOtsu(false);return}if(!$('#wkdlg').hidden){$('#wkdlg').hidden=true;return}if(!$('#ocdlg').hidden){$('#ocdlg').hidden=true;return}if(!$('#mvdlg').hidden){$('#mvdlg').hidden=true;return}if(!$('#rvdlg').hidden){$('#rvdlg').hidden=true;return}if(!$('#swdlg').hidden){swClose();return}if(!$('#lbdlg').hidden){$('#lbdlg').hidden=true;return}if(Ring.on){Ring.stop();return}if(!$('#mixer').hidden){closeMixer();return}if(!$('#modal').hidden){$('#modal').hidden=true;return}if(!$('#detail').hidden){closeDrawer();return}if(!$('#fs').hidden)exitFs();return}
   if(e.target.closest('input,select,textarea')||!$('#memodlg').hidden||!$('#otdlg').hidden||!$('#wkdlg').hidden||!$('#ocdlg').hidden||!$('#mvdlg').hidden||!$('#rvdlg').hidden||!$('#swdlg').hidden||!$('#lbdlg').hidden||!$('#modal').hidden||!$('#sdlg').hidden||!$('#mixer').hidden||!$('#detail').hidden||e.metaKey||e.ctrlKey||e.altKey)return;
   const k=e.key.toLowerCase();
-  if(e.code==='Space'){e.preventDefault();T.running?pause():start()}else if(k==='r')resetT();else if(k==='s')skipT();else if(k==='f')(!$('#fs').hidden?exitFs():enterFs());else if(k==='m'&&T.mode==='focus'&&T.startedAt){e.preventDefault();openMemo()}});
+  if(e.code==='Space'){e.preventDefault();T.running?userPause():start()}else if(k==='r')resetT();else if(k==='s')skipT();else if(k==='f')(!$('#fs').hidden?exitFs():enterFs());else if(k==='m'&&T.mode==='focus'&&T.startedAt){e.preventDefault();openMemo()}});
 let lastDay=todayKey();setInterval(()=>{const k=todayKey();if(k!==lastDay){lastDay=k;T.cycle=0;T.cycleDay=k;persistT();renderAll()}},30000);
 
 let dialVis=true,rszT=null;window.addEventListener('resize',()=>{clearTimeout(rszT);rszT=setTimeout(()=>{if(view==='plan'&&tcWasSmall!==null&&(tcSmall()+'|'+(window.innerWidth>=1200))!==tcWasSmall){tcWk=weekStart(tcSel);tcMonth=tcSel.slice(0,7);renderTaskCal()}},200)});

@@ -278,5 +278,21 @@ function petImgSVG(p,lv,mood,cls){if(!p)return '';const have=PET_IMG[p.kind+'/'+
   return `<svg viewBox="0 0 200 200" class="pet m${mood} ${cls||''}" role="img" aria-label="${esc(K.n+'・'+V[0]+'・'+K.st[stage]+'・'+(MOOD[mood]?MOOD[mood][0]:'おやすみ'))}"><ellipse cx="100" cy="189" rx="${52*sc}" ry="6" fill="#000" opacity=".1"/>
     <g class="pbody"><image href="pets/${p.kind}/${p.v}/${name}.webp" x="0" y="5" width="200" height="200" preserveAspectRatio="xMidYMid meet"/></g></svg>`}""")
 
+# focus pause allowance: total pause per focus session is limited (default 3 min); past it the timer resumes by itself
+rep("const DEF={calGroup:","const DEF={pauseMax:3,calGroup:")
+rep("selKeys=['theme',","selKeys=['pauseMax','theme',")
+rep('<label class="pr"><span>離席を記録<small>','<label class="pr"><span>集中中の一時停止<small>1回の集中で一時停止できる合計時間。過ぎると自動で再開します</small></span>${sel(\'p_pauseMax\',{0:\'しない\',1:\'1分まで\',3:\'3分まで\',5:\'5分まで\',none:\'制限なし\'},S.pauseMax??3)}</label>\n    <label class="pr"><span>離席を記録<small>')
+rep("function start(force){audio();if(T.running)return;","function start(force){audio();if(T.running)return;if(T.pausedAt){T.pauseUsed=(T.pauseUsed||0)+(Date.now()-T.pausedAt)/1000;T.pausedAt=0}")
+rep("if(T.mode==='focus'&&!T.startedAt){T.brkFrom=0;","if(T.mode==='focus'&&!T.startedAt){T.pauseUsed=0;T.pausedAt=0;T.brkFrom=0;")
+rep("T.running?pause():start()","T.running?userPause():start()",4)
+rep("if(T.running)pause();else start(true)","if(T.running)userPause();else start(true)")
+rep("""/*@cloud*/""","""/*@cloud*/
+function pauseLeft(){const m=S.pauseMax??3;if(m==='none'||T.mode!=='focus'||!T.startedAt)return Infinity;return m*60-(T.pauseUsed||0)}
+function userPause(){const left=pauseLeft();
+  if(left<=0){toast((S.pauseMax??3)===0?'集中中は一時停止できない設定です（設定 > 集中中の一時停止）':'この集中では、一時停止できる時間を使い切りました');return}
+  pause();if(isFinite(left)){T.pausedAt=Date.now();persistT();toast(`一時停止中。あと ${fmt(left)} で自動的に再開します`)}}
+setInterval(()=>{const m=S.pauseMax??3;if(T.running||!T.pausedAt||m==='none'||T.mode!=='focus'||!T.startedAt)return;
+  if((T.pauseUsed||0)+(Date.now()-T.pausedAt)/1000>=m*60){start(true);toast('一時停止できる時間を過ぎたので、集中を再開しました')}},1000);""")
+
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
