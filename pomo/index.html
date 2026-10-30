@@ -1286,7 +1286,7 @@ body.dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 <div class="modal sheetdlg" id="shdlg" hidden><div class="box"><div class="dh"><h3 style="font-family:var(--display);margin:0;font-size:18px">計画表のプレビュー</h3><button class="btn" id="shClose">閉じる</button></div><div class="shwrap" id="shWrap"></div></div></div>
 <div class="acct" id="acct" hidden role="dialog" aria-label="アカウント"></div><div class="modal acctdlg" id="acctDlg" hidden><div class="box"><h3 id="adTitle"></h3><p id="adMsg"></p><div class="ocopts" id="adOpts"></div></div></div><div class="modal fbdlg" id="fbDlg" hidden><div class="box"><h3>ご意見・要望を送る</h3><p class="muted" style="font-size:13px">「こんな機能がほしい」「ここが使いにくい」など、なんでも送ってください。今後の改善の参考にします。お名前や連絡先などの個人情報は書かないでください。</p><div class="seg" id="fbKind"><button data-k="idea" aria-pressed="true">要望</button><button data-k="bug" aria-pressed="false">不具合</button><button data-k="other" aria-pressed="false">その他</button></div><textarea id="fbText" rows="6" maxlength="2000" placeholder="例：タスクを並べ替えられるようにしてほしい"></textarea><small class="muted" id="fbCount" style="text-align:right">0 / 2000</small><div class="acts"><button class="btn" id="fbNo">やめる</button><button class="btn primary" id="fbYes">送る</button></div></div></div><div class="modal" id="modal" hidden><div class="box"><p id="modalMsg"></p><div class="acts"><button class="btn" id="modalNo">やめる</button><button class="btn primary" id="modalYes">OK</button></div></div></div>
 <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="toastAct" hidden></button></div>
-<input type="file" id="importFile" accept=".json,application/json" hidden>
+<input type="file" id="importFile" accept=".json,application/json" hidden><input type="file" id="schedFile" accept=".json,application/json" hidden>
 <div class="ringbar" id="ringbar" hidden role="alert"><div><b id="ringTitle">休憩が終わりました</b> <span class="rsub" id="ringSub"></span></div><span style="display:flex;gap:8px;flex-wrap:wrap"><button id="ringMain">集中を開始</button><button class="ghost" id="ringAlt">音を止める</button><button class="ghost" id="ringCont" hidden>休憩せずに続けていた</button></span></div>
 
 <script>
@@ -4717,8 +4717,9 @@ $('#shClose').onclick=()=>$('#shdlg').hidden=true;$('#shdlg').onclick=e=>{if(e.t
 const LIBS={h2c:'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',pdf:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',xlsx:'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'};
 const libP={};
 function loadLib(k){return libP[k]||(libP[k]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=LIBS[k];s.onload=()=>res();s.onerror=()=>{delete libP[k];rej(new Error('load '+k))};document.head.appendChild(s)}))}
-if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(importSched,1200))}
+if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(()=>importSched(true),1200))}
 /*@cloud*/
+$('#schedFile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const r=new FileReader();r.onload=()=>{let o=null;try{o=JSON.parse(r.result)}catch(x){}importSchedData(o&&o.app==='study-scheduler'?o:null)};r.readAsText(f)};
 if(window.PomoCloud&&!(window.claude&&window.claude.use)){$('#fbFoot').hidden=false;$('#d_fb').onclick=()=>fbOpen()}
 function fbOpen(){const d=$('#fbDlg');d.hidden=false;const ta=$('#fbText');$('#fbCount').textContent=[...ta.value].length+' / 2000';setTimeout(()=>ta.focus(),50)}
 $('#fbKind').onclick=e=>{const b=e.target.closest('[data-k]');if(!b)return;$$('#fbKind button').forEach(x=>x.setAttribute('aria-pressed',x===b))};
@@ -4803,8 +4804,14 @@ function schedPlan(d){const today=todayKey(),seen=new Set();
     tk.push(newTask({title:t.name,due:t.date||today,fromSched:key}))}
   const memo=(d.memo||'').trim();if(memo&&!seen.has('sched-memo'))mm.push({id:'m-'+nid(),text:memo,at:Date.now(),ctx:'学習スケジューラーから',fromSched:'sched-memo'});
   return {rv,tk,mm}}
-async function importSched(){const d=await loadSched();
-  if(!d){toast(PomoCloud.user?'学習スケジューラーのデータが見つかりませんでした':'学習スケジューラーのデータが見つかりません。同じ Google アカウントでログインしてから試してください');return}
+async function importSched(auto){
+  const k=auto?'here':await choose('学習スケジューラーから引き継ぐ','どこから取り込みますか？',[['here','このブラウザ・ログイン中のアカウントから','学習スケジューラーを同じブラウザで使っていたか、同じ Google アカウントでログインしている場合'],['file','書き出したファイルから','学習スケジューラーの「📤 書き出し」で保存したファイル（別の端末・別のログイン方法でも使えます）'],['cancel','やめる']]);
+  if(k==='cancel')return;if(k==='file'){$('#schedFile').click();return}
+  const d=await loadSched();
+  if(!d){toast(PomoCloud.user?'学習スケジューラーのデータが見つかりませんでした。「書き出したファイルから」もお試しください':'学習スケジューラーのデータが見つかりません。学習スケジューラーの「📤 書き出し」で保存したファイルから取り込めます');return}
+  importSchedData(d)}
+function importSchedData(d){
+  if(!d||(!Array.isArray(d.tasks)&&!Array.isArray(d.todos)&&!d.memo)){toast('学習スケジューラーのファイルではないようです');return}
   const p=schedPlan(d),on=p.rv.filter(x=>!x.paused).length;
   if(!p.rv.length&&!p.tk.length&&!p.mm.length){toast('引き継ぐものはありません（すべて取り込み済みです）');return}
   confirmBox(`学習スケジューラーから取り込みます。\n・復習 ${p.rv.length}件（予定あり ${on}件／予定が終わったもの ${p.rv.length-on}件は一時停止で保存）\n・未完了のタスク ${p.tk.length}件\n・メモ ${p.mm.length}件\n学習時間の記録・連続日数は引き継がれません。`,'取り込む',()=>{
@@ -5248,7 +5255,7 @@ async function exportCSV(){const q=v=>{v=String(v??'');return /[",\n]/.test(v)?'
 async function exportData(){const data=JSON.stringify({app:'pomo-timer',v:3,exportedAt:new Date().toISOString(),state:st,months},null,1),name=`pomo-timer-backup-${todayKey()}.json`;
   try{const dl=window.claude&&window.claude.use?await claude.use('downloads'):null;if(dl){await dl.save({filename:name,data});toast('バックアップを保存しました');return}}catch(e){if(e&&e.code==='declined')return}
   try{await navigator.clipboard.writeText(data);toast('保存できない環境のため、クリップボードにコピーしました')}catch(e){toast('この環境ではバックアップを書き出せません')}}
-$('#importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(o.app!=='pomo-timer'||!o.state)throw 0;
+$('#importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(o.app==='study-scheduler'){e.target.value='';importSchedData(o);return}if(o.app!=='pomo-timer'||!o.state)throw 0;
   confirmBox(`バックアップを読み込みますか？教材・タスク・設定は置き換わり、学習の記録は統合されます。`,'読み込む',()=>{st=migrate(o.state);S=st.settings;migrateMix();
     for(const k in (o.months||{})){const ids=new Set((months[k]||[]).map(s=>s.id));months[k]=(months[k]||[]).concat(o.months[k].filter(s=>!ids.has(s.id)));saveMonth(k)}normSessions();applyTheme();save();toast('読み込みました')})}catch(err){toast('このファイルは Pomo Timer のバックアップではありません')}};r.readAsText(f);e.target.value=''};
 

@@ -78,7 +78,7 @@ rep("""  if(t.id==='d_export')exportData();if(t.id==='d_import')$('#importFile')
   if(t.id==='d_logout'){cloudLogout();return}""")
 
 rep("""async function saveFile(name,data){""",
-"""if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(importSched,1200))}
+"""if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(()=>importSched(true),1200))}
 /*@cloud*/
 async function saveFile(name,data){""")
 
@@ -122,8 +122,14 @@ function schedPlan(d){const today=todayKey(),seen=new Set();
     tk.push(newTask({title:t.name,due:t.date||today,fromSched:key}))}
   const memo=(d.memo||'').trim();if(memo&&!seen.has('sched-memo'))mm.push({id:'m-'+nid(),text:memo,at:Date.now(),ctx:'学習スケジューラーから',fromSched:'sched-memo'});
   return {rv,tk,mm}}
-async function importSched(){const d=await loadSched();
-  if(!d){toast(PomoCloud.user?'学習スケジューラーのデータが見つかりませんでした':'学習スケジューラーのデータが見つかりません。同じ Google アカウントでログインしてから試してください');return}
+async function importSched(auto){
+  const k=auto?'here':await choose('学習スケジューラーから引き継ぐ','どこから取り込みますか？',[['here','このブラウザ・ログイン中のアカウントから','学習スケジューラーを同じブラウザで使っていたか、同じ Google アカウントでログインしている場合'],['file','書き出したファイルから','学習スケジューラーの「📤 書き出し」で保存したファイル（別の端末・別のログイン方法でも使えます）'],['cancel','やめる']]);
+  if(k==='cancel')return;if(k==='file'){$('#schedFile').click();return}
+  const d=await loadSched();
+  if(!d){toast(PomoCloud.user?'学習スケジューラーのデータが見つかりませんでした。「書き出したファイルから」もお試しください':'学習スケジューラーのデータが見つかりません。学習スケジューラーの「📤 書き出し」で保存したファイルから取り込めます');return}
+  importSchedData(d)}
+function importSchedData(d){
+  if(!d||(!Array.isArray(d.tasks)&&!Array.isArray(d.todos)&&!d.memo)){toast('学習スケジューラーのファイルではないようです');return}
   const p=schedPlan(d),on=p.rv.filter(x=>!x.paused).length;
   if(!p.rv.length&&!p.tk.length&&!p.mm.length){toast('引き継ぐものはありません（すべて取り込み済みです）');return}
   confirmBox(`学習スケジューラーから取り込みます。\\n・復習 ${p.rv.length}件（予定あり ${on}件／予定が終わったもの ${p.rv.length-on}件は一時停止で保存）\\n・未完了のタスク ${p.tk.length}件\\n・メモ ${p.mm.length}件\\n学習時間の記録・連続日数は引き継がれません。`,'取り込む',()=>{
@@ -253,5 +259,10 @@ rep("""  M.tomb=tomb;M.updatedAt=Math.max(L.updatedAt||0,R.updatedAt||0);return 
     if(JSON.stringify(M.fu)!==JSON.stringify(fr))dirty=true}
   M.tomb=tomb;M.updatedAt=Math.max(L.updatedAt||0,R.updatedAt||0);return {M,dirty}}""")
 
+# scheduler export file: dedicated picker, and the backup "読み込み" also accepts it
+rep('<input type="file" id="importFile" accept=".json,application/json" hidden>','<input type="file" id="importFile" accept=".json,application/json" hidden><input type="file" id="schedFile" accept=".json,application/json" hidden>')
+rep("const o=JSON.parse(r.result);if(o.app!=='pomo-timer'||!o.state)throw 0;","const o=JSON.parse(r.result);if(o.app==='study-scheduler'){e.target.value='';importSchedData(o);return}if(o.app!=='pomo-timer'||!o.state)throw 0;")
+rep("""/*@cloud*/""","""/*@cloud*/
+$('#schedFile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const r=new FileReader();r.onload=()=>{let o=null;try{o=JSON.parse(r.result)}catch(x){}importSchedData(o&&o.app==='study-scheduler'?o:null)};r.readAsText(f)};""")
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
