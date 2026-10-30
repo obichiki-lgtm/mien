@@ -41,7 +41,16 @@ window.PomoCloud=(()=>{
 </script>
 '''
 rep('<!doctype html><html><head>', '<!doctype html><html lang="ja"><head>')
-rep('<title>Pomo Timer</title>', '<title>Pomo Timer</title>\n' + FB)
+PWA = '''<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#EDF0EE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101513" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pomo Timer">
+<script>if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script>
+'''
+rep('<title>Pomo Timer</title>', '<title>Pomo Timer</title>\n' + PWA + FB)
 
 # 2. Sync.init: claude.ai runtime when present, Firebase otherwise
 rep("""    if(!window.claude||!window.claude.use){this.set('','この端末に保存','同期は claude.ai で開いたときに使えます');return}""",
