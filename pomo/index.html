@@ -1381,11 +1381,13 @@ function amtText(s){const b=book(s.book),u=b?b.unit:'';if(s.from!=null&&s.to!=nu
 
 /* ================= persistence + sync ================= */
 const SCOLS=['subjects','books','tasks','goals','alarms','reviews','memos'],PCOLS=['events','routines'];let lastSnap=null;
+const TOPSKIP=new Set([...SCOLS,'plan','daily','tomb','fu','updatedAt','v']);let lastTop=null;
 function colsOf(o){const r={};SCOLS.forEach(c=>r[c]=o[c]||[]);PCOLS.forEach(c=>r['p.'+c]=(o.plan&&o.plan[c])||[]);return r}
-function setSnap(){const r={};const cs=colsOf(st);for(const c in cs){const m=new Map();cs[c].forEach(it=>{if(it&&it.id)m.set(it.id,JSON.stringify(Object.assign({},it,{u:0})))});r[c]=m}lastSnap=r}
+function setSnap(){const r={};const cs=colsOf(st);for(const c in cs){const m=new Map();cs[c].forEach(it=>{if(it&&it.id)m.set(it.id,JSON.stringify(Object.assign({},it,{u:0})))});r[c]=m}lastSnap=r;lastTop={};for(const k in st)if(!TOPSKIP.has(k))lastTop[k]=JSON.stringify(st[k])}
 function stamp(){if(!lastSnap){setSnap();return}const now=Date.now();st.tomb=st.tomb||{};const cs=colsOf(st);
   for(const c in cs){const prev=lastSnap[c]||new Map(),seen=new Set();for(const it of cs[c]){if(!it||!it.id)continue;seen.add(it.id);const j=JSON.stringify(Object.assign({},it,{u:0}));if(prev.get(it.id)!==j)it.u=now}
     for(const id of prev.keys())if(!seen.has(id))st.tomb[id]=now}
+  st.fu=st.fu||{};for(const k of new Set([...Object.keys(st),...Object.keys(lastTop||{})]))if(!TOPSKIP.has(k)&&lastTop&&lastTop[k]!==JSON.stringify(st[k]))st.fu[k]=now;
   const old=now-90*864e5;for(const id in st.tomb)if(st.tomb[id]<old)delete st.tomb[id];setSnap()}
 function mergeState(L,R){const lNew=(L.updatedAt||0)>=(R.updatedAt||0),base=lNew?L:R;const M=JSON.parse(JSON.stringify(base));let dirty=lNew&&(L.updatedAt||0)!==(R.updatedAt||0);
   const tomb=Object.assign({},R.tomb||{});for(const id in (L.tomb||{})){if(!(tomb[id]>=L.tomb[id])){tomb[id]=L.tomb[id];dirty=true}}
@@ -1402,6 +1404,10 @@ function mergeState(L,R){const lNew=(L.updatedAt||0)>=(R.updatedAt||0),base=lNew
     if(lp.pd||rp.pd){const ln=(lp.pdAt||0)>=(rp.pdAt||0),nw=ln?lp.pd:rp.pd,ot=ln?rp.pd:lp.pd,out=JSON.parse(JSON.stringify(nw||{moves:{},dels:[],adds:[]}));out.adds=out.adds||[];
       ((ot||{}).adds||[]).forEach(x=>{if(!out.adds.some(y=>y.id===x.id))out.adds.push(x)});out.adds=out.adds.filter(x=>!tomb['pda:'+x.id]);M.plan.pd=out;M.plan.pdAt=Math.max(lp.pdAt||0,rp.pdAt||0);if(JSON.stringify(out)!==JSON.stringify(rp.pd||null))dirty=true}}
   const dl=L.daily||{},dr=R.daily||{};M.daily=Object.assign({},dr);for(const k in dl){const a=dl[k],b=dr[k];if(!b){M.daily[k]=a;dirty=true;continue}const done=[...new Set([...(b.done||[]),...(a.done||[])])];if(done.length!==(b.done||[]).length||(a.all&&!b.all))dirty=true;M.daily[k]=Object.assign({},b,{done,all:!!(a.all||b.all)})}
+  {const fl=L.fu||{},fr=R.fu||{};M.fu=Object.assign({},fr);for(const k in fl)M.fu[k]=Math.max(fl[k]||0,fr[k]||0);
+    for(const k of new Set([...Object.keys(L),...Object.keys(R)])){if(TOPSKIP.has(k))continue;const a=fl[k]||0,b=fr[k]||0;if(a===b)continue;const src=a>b?L:R;
+      if(src[k]===undefined)delete M[k];else M[k]=JSON.parse(JSON.stringify(src[k]));if(JSON.stringify(M[k])!==JSON.stringify(R[k]))dirty=true}
+    if(JSON.stringify(M.fu)!==JSON.stringify(fr))dirty=true}
   M.tomb=tomb;M.updatedAt=Math.max(L.updatedAt||0,R.updatedAt||0);return {M,dirty}}
 function save(quiet){stamp();st.updatedAt=Date.now();LS.set('state',st);Sync.pushState();if(!quiet)renderAll()}
 function saveMonth(mk){dataVer++;LS.set('months',months);Sync.pushMonth(mk)}

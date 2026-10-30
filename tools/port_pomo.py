@@ -238,5 +238,20 @@ $('#fbYes').onclick=async()=>{const text=$('#fbText').value.trim();if(!text){toa
 # theme color -> icons (head script window.pomoIcon) + note about installed icon
 rep("function applyTheme(){document.body.dataset.accent=S.accent||'tomato';","function applyTheme(){document.body.dataset.accent=S.accent||'tomato';if(window.pomoIcon)pomoIcon(S.accent||'tomato');")
 rep('<div class="pr"><span>テーマカラー</span>','<div class="pr"><span>テーマカラー<small>アプリのアイコンもこの色になります（インストール済みの場合、変わるまで時間がかかるか、入れ直しが必要です）</small></span>')
+# sync: per-field timestamps (st.fu) for top-level values such as pet / settings, so a device that saves before
+# receiving newer cloud data no longer reverts fields it did not touch (whole-state "newer wins" lost the chosen pet)
+rep("""const SCOLS=['subjects','books','tasks','goals','alarms','reviews','memos'],PCOLS=['events','routines'];let lastSnap=null;""",
+    """const SCOLS=['subjects','books','tasks','goals','alarms','reviews','memos'],PCOLS=['events','routines'];let lastSnap=null;
+const TOPSKIP=new Set([...SCOLS,'plan','daily','tomb','fu','updatedAt','v']);let lastTop=null;""")
+rep("""r[c]=m}lastSnap=r}""","""r[c]=m}lastSnap=r;lastTop={};for(const k in st)if(!TOPSKIP.has(k))lastTop[k]=JSON.stringify(st[k])}""")
+rep("""    for(const id of prev.keys())if(!seen.has(id))st.tomb[id]=now}""","""    for(const id of prev.keys())if(!seen.has(id))st.tomb[id]=now}
+  st.fu=st.fu||{};for(const k of new Set([...Object.keys(st),...Object.keys(lastTop||{})]))if(!TOPSKIP.has(k)&&lastTop&&lastTop[k]!==JSON.stringify(st[k]))st.fu[k]=now;""")
+rep("""  M.tomb=tomb;M.updatedAt=Math.max(L.updatedAt||0,R.updatedAt||0);return {M,dirty}}""",
+"""  {const fl=L.fu||{},fr=R.fu||{};M.fu=Object.assign({},fr);for(const k in fl)M.fu[k]=Math.max(fl[k]||0,fr[k]||0);
+    for(const k of new Set([...Object.keys(L),...Object.keys(R)])){if(TOPSKIP.has(k))continue;const a=fl[k]||0,b=fr[k]||0;if(a===b)continue;const src=a>b?L:R;
+      if(src[k]===undefined)delete M[k];else M[k]=JSON.parse(JSON.stringify(src[k]));if(JSON.stringify(M[k])!==JSON.stringify(R[k]))dirty=true}
+    if(JSON.stringify(M.fu)!==JSON.stringify(fr))dirty=true}
+  M.tomb=tomb;M.updatedAt=Math.max(L.updatedAt||0,R.updatedAt||0);return {M,dirty}}""")
+
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
