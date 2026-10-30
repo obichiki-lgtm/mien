@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>データの扱い | Pomo Timer</title>
+<style>
+:root{--bg:#EDF0EE;--surface:#fff;--fg:#18201D;--muted:#5F6E68;--line:#D3DAD6;--acc:#D9452B}
+@media (prefers-color-scheme:dark){:root{--bg:#101513;--surface:#19201D;--fg:#E5EBE8;--muted:#8E9B95;--line:#2A332F;--acc:#F0664B}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.8 "Noto Sans JP",system-ui,-apple-system,"Hiragino Sans",sans-serif}
+main{max-width:720px;margin:0 auto;padding:28px 16px 56px}
+h1{font-size:22px;margin:0 0 6px}
+h2{font-size:16px;margin:28px 0 6px}
+p,li{color:var(--fg)}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 18px}
+section{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:4px 18px 14px;margin-top:14px}
+ul{padding-left:1.2em;margin:6px 0}
+a{color:var(--acc)}
+</style>
+</head>
+<body>
+<main>
+<h1>データの扱いについて</h1>
+<p class="lead">Pomo Timer がどんなデータを、どこに保存するかの説明です。</p>
+
+<section>
+<h2>ログインしないで使う場合</h2>
+<p>記録・タスク・設定などはすべて、使っている端末のブラウザの中だけに保存されます。外部には送信されません。</p>
+</section>
+
+<section>
+<h2>Google でログインした場合</h2>
+<ul>
+<li><b>保存するもの</b>：学習の記録、タスク、教材、復習、メモ、設定など、アプリで入力した内容</li>
+<li><b>Google アカウントから受け取るもの</b>：表示名・メールアドレス・アイコン画像（画面に「誰でログインしているか」を表示するためだけに使います）</li>
+<li><b>保存先</b>：Google の Firebase（Cloud Firestore）。同じアカウントでログインした端末どうしで同期するために使います</li>
+<li><b>見られる人</b>：アカウントの本人だけが読み書きできるように設定しています。ただし、サービスの管理者は運用のため Firebase の管理画面からデータを見られます</li>
+<li>広告や分析ツールは使っていません。データを第三者に渡すことはありません</li>
+</ul>
+</section>
+
+<section>
+<h2>データを消すには</h2>
+<ul>
+<li><b>クラウドのデータ</b>：ログイン中に画面右上のアカウント（雲のアイコン／「同期済み」の表示）から「クラウドのデータを削除」を選ぶと、すべて削除されます</li>
+<li><b>端末のデータ</b>：設定 → データ →「すべて初期化」、またはログアウトすると消去されます</li>
+</ul>
+</section>
+
+<section>
+<h2>学習スケジューラーとの関係</h2>
+<p>同じアドレスにある「学習スケジューラー」と同じログインの仕組みを使っています。そのため、片方でログアウトすると、もう片方もログアウトされます。Pomo Timer のデータを削除しても、学習スケジューラーのデータは削除されません。</p>
+</section>
+
+<p style="margin-top:24px"><a href="./">← Pomo Timer に戻る</a></p>
+</main>
+</body>
+</html>
