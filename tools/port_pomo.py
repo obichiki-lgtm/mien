@@ -35,6 +35,7 @@ window.PomoCloud=(()=>{
     async signIn(){const p=new firebase.auth.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});return (await auth.signInWithPopup(p)).user},
     signOut(){return auth.signOut()},
     async hasCloud(uid){return (await fs.doc('pomo/'+uid+'/docs/state').get()).exists},
+    sendFeedback(o){return fs.collection('feedback').add(Object.assign({},o,{at:firebase.firestore.FieldValue.serverTimestamp(),uid:auth.currentUser?auth.currentUser.uid:null,processed:false}))},
     async deleteCloud(uid){const q=await fs.collection('pomo/'+uid+'/docs').get(),b=fs.batch();q.docs.forEach(d=>b.delete(d.ref));await b.commit()}};
 })();
 </script>
@@ -144,7 +145,8 @@ rep("""  set(cls,txt,title){const el=$('#sync');el.className='sync '+cls;$('#syn
 # nudge to sign in after the first finished focus session (instead of on first visit)
 rep("""function addSession(s){""","""function addSession(s){loginNudge(s);""")
 
-rep("""/*@cloud*/""","""const INAPP=/Line\\/|FBAN|FBAV|FB_IAB|Instagram|Twitter|MicroMessenger|KAKAOTALK|; wv\\)/i.test(navigator.userAgent);
+rep("""/*@cloud*/""","""/*@cloud*/
+const INAPP=/Line\\/|FBAN|FBAV|FB_IAB|Instagram|Twitter|MicroMessenger|KAKAOTALK|; wv\\)/i.test(navigator.userAgent);
 const AUTH_ERR={'auth/popup-blocked':'ポップアップがブロックされました。もう一度ログインを押してください',
   'auth/network-request-failed':'通信できませんでした。電波のよい場所でもう一度お試しください',
   'auth/too-many-requests':'しばらく時間をおいてからお試しください',
@@ -184,6 +186,7 @@ function acctRender(){const u=PomoCloud.user,el=$('#acct');if(!u){acctClose();re
   <div class="stl ${st0}"><b></b><span>${esc($('#syncText').textContent)}${st0==='on'?' · このアカウントの端末どうしで自動同期':''}</span></div>
   <div class="ocopts"><button data-a="sched">学習スケジューラーから引き継ぐ<small>復習の予定・ToDo・メモを取り込む</small></button>
   <button data-a="switch">別のアカウントに切り替え</button><button data-a="logout">ログアウト</button>
+  <button data-a="fb">ご意見・要望を送る<small>ほしい機能や使いにくいところを教えてください</small></button>
   <button data-a="delete" class="danger">クラウドのデータを削除</button></div><a href="privacy.html" target="_blank" rel="noopener">データの扱いについて</a>`}
 function acctOpen(){acctRender();$('#acct').hidden=false;$('#sync').setAttribute('aria-expanded','true')}
 function acctClose(){const el=$('#acct');if(el)el.hidden=true;const sy=$('#sync');if(sy)sy.setAttribute('aria-expanded','false')}
@@ -191,10 +194,29 @@ if(cloudOn()){const sy=$('#sync');sy.classList.add('tap');sy.setAttribute('role'
   const act=()=>{if(!PomoCloud.user||!Sync.col){cloudLogin();return}$('#acct').hidden?acctOpen():acctClose()};
   sy.addEventListener('click',e=>{e.stopPropagation();act()});sy.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act()}});
   $('#acct').addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;
-    if(a==='sched'){acctClose();importSched()}else if(a==='switch')cloudLogout('login');else if(a==='logout')cloudLogout();else if(a==='delete')cloudDelete()});
+    if(a==='sched'){acctClose();importSched()}else if(a==='fb'){acctClose();fbOpen()}else if(a==='switch')cloudLogout('login');else if(a==='logout')cloudLogout();else if(a==='delete')cloudDelete()});
   document.addEventListener('click',()=>{if(!$('#acct').hidden)acctClose()});document.addEventListener('keydown',e=>{if(e.key==='Escape')acctClose()});
   let after=null;try{after=sessionStorage.getItem('pomoAfter');sessionStorage.removeItem('pomoAfter')}catch(e){}
   if(after==='login')setTimeout(()=>toast('切り替えるアカウントでログインしてください','Google でログイン',cloudLogin),800)}""")
+
+# feedback: form -> Firestore feedback/{id} (create-only) -> GitHub Issues via .github/workflows/feedback.yml
+rep('<div class="modal" id="modal" hidden>','<div class="modal fbdlg" id="fbDlg" hidden><div class="box"><h3>ご意見・要望を送る</h3><p class="muted" style="font-size:13px">「こんな機能がほしい」「ここが使いにくい」など、なんでも送ってください。今後の改善の参考にします。お名前や連絡先などの個人情報は書かないでください。</p><div class="seg" id="fbKind"><button data-k="idea" aria-pressed="true">要望</button><button data-k="bug" aria-pressed="false">不具合</button><button data-k="other" aria-pressed="false">その他</button></div><textarea id="fbText" rows="6" maxlength="2000" placeholder="例：タスクを並べ替えられるようにしてほしい"></textarea><small class="muted" id="fbCount" style="text-align:right">0 / 2000</small><div class="acts"><button class="btn" id="fbNo">やめる</button><button class="btn primary" id="fbYes">送る</button></div></div></div><div class="modal" id="modal" hidden>')
+rep('.acctdlg .box{max-width:440px}','.fbdlg .box{max-width:480px}.fbdlg h3{font-family:var(--display);margin:0;font-size:18px}.fbdlg textarea{min-height:130px}\n.acctdlg .box{max-width:440px}')
+rep("""    <div class="pr"><span>すべて初期化</span>""","""    ${cloudOn()?'<div class="pr"><span>ご意見・要望を送る<small>ほしい機能や使いにくいところを教えてください</small></span><button class="btn" id="d_fb">送る</button></div>':''}<div class="pr"><span>すべて初期化</span>""")
+rep("""  if(t.id==='d_sched'){importSched();return}""","""  if(t.id==='d_sched'){importSched();return}
+  if(t.id==='d_fb'){fbOpen();return}""")
+rep("""/*@cloud*/""","""/*@cloud*/
+function fbOpen(){const d=$('#fbDlg');d.hidden=false;const ta=$('#fbText');$('#fbCount').textContent=[...ta.value].length+' / 2000';setTimeout(()=>ta.focus(),50)}
+$('#fbKind').onclick=e=>{const b=e.target.closest('[data-k]');if(!b)return;$$('#fbKind button').forEach(x=>x.setAttribute('aria-pressed',x===b))};
+$('#fbText').oninput=e=>{$('#fbCount').textContent=[...e.target.value].length+' / 2000'};
+$('#fbNo').onclick=()=>{$('#fbDlg').hidden=true};$('#fbDlg').onclick=e=>{if(e.target.id==='fbDlg')$('#fbDlg').hidden=true};
+$('#fbYes').onclick=async()=>{const text=$('#fbText').value.trim();if(!text){toast('内容を入力してください');return}
+  const last=LS.get('fbAt',0);if(Date.now()-last<60000){toast('続けて送るときは少し時間をおいてください');return}
+  const kind=($('#fbKind [aria-pressed="true"]')||{}).dataset?.k||'idea',btn=$('#fbYes');btn.disabled=true;btn.textContent='送信中…';
+  try{await Promise.race([PomoCloud.sendFeedback({text:text.slice(0,2000),kind,page:'pomo',ua:navigator.userAgent.slice(0,300)}),new Promise((_,rj)=>setTimeout(()=>rj({code:'timeout'}),12000))]);
+    LS.set('fbAt',Date.now());$('#fbText').value='';$('#fbDlg').hidden=true;toast('送信しました。ありがとうございます！')}
+  catch(e){toast(e&&e.code==='timeout'?'送信できませんでした。通信できる場所でもう一度お試しください':'送信できませんでした（'+(e&&e.code||'')+'）')}
+  finally{btn.disabled=false;btn.textContent='送る'}};""")
 
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))

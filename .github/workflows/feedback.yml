@@ -1,0 +1,24 @@
+# Pomo Timer のご意見（Firestore feedback/*）を GitHub Issue（ラベル feedback）に転記する
+name: feedback-to-issues
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency: feedback-to-issues
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save --no-package-lock firebase-admin@12.7.0
+      - run: node tools/feedback_to_issues.mjs
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
