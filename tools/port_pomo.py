@@ -294,5 +294,21 @@ function userPause(){const left=pauseLeft();
 setInterval(()=>{const m=S.pauseMax??3;if(T.running||!T.pausedAt||m==='none'||T.mode!=='focus'||!T.startedAt)return;
   if((T.pauseUsed||0)+(Date.now()-T.pausedAt)/1000>=m*60){start(true);toast('一時停止できる時間を過ぎたので、集中を再開しました')}},1000);""")
 
+# leaving the app during focus: past the chosen limit (default 45 s) the focus fails (recorded as abandoned, timer reset)
+rep("const DEF={pauseMax:3,","const DEF={leavePen:45,pauseMax:3,")
+rep("selKeys=['pauseMax',","selKeys=['leavePen','pauseMax',")
+rep("${swc('p_strict',S.strict)}</label>","${swc('p_strict',S.strict)}</label>\n    <label class=\"pr\"><span>離れたときのペナルティ<small>集中中にこの時間以上アプリを離れると、その集中は失敗になります（画面を消した場合も含む）</small></span>${sel('p_leavePen',{off:'記録だけ',60:'60秒で失敗',45:'45秒で失敗',30:'30秒で失敗',10:'10秒で失敗',0:'すぐ失敗'},S.leavePen??45)}</label>")
+rep("else{if(T.running)lockWake();if(T.leftAt&&T.running&&T.mode==='focus'&&S.strict){toast(`集中中にこの画面を離れました（${T.int}回目）`);T.leftAt=0}renderTimer()}});",
+    "else{if(T.running)lockWake();if(T.leftAt&&T.running&&T.mode==='focus'&&S.strict){if(leaveCheck())return;const L=S.leavePen??45;toast(`集中中にこの画面を離れました（${T.int}回目）${L==='off'?'':`。${L}秒以上離れると失敗になります`}`);T.leftAt=0}renderTimer()}});")
+rep("""/*@cloud*/""","""/*@cloud*/
+function failFocus(away){const ss=segSec();pause();
+  if(T.mode==='focus'&&T.startedAt&&ss>=60){const s=recordSession(false,ss);T.brkPend=s.id}
+  T.startedAt=0;T.segOff=0;T.segStart=0;T.contId=null;if(T.contPrev)endCont();
+  T.remaining=T.total=durFor(T.mode);T.elapsed=0;T.int=0;T.noticed=false;T.leftAt=0;T.pausedAt=0;persistT();renderAll();
+  toast(`${away>=120?Math.round(away/60)+'分':away+'秒'}離れたので、この集中は失敗になりました${ss>=60?'（森に枯れ木が1本）':''}`)}
+function leaveCheck(){const L=S.leavePen??45;if(L==='off'||!S.strict||!T.leftAt||!T.running||T.mode!=='focus'||!T.startedAt)return false;
+  const away=Math.round((Date.now()-T.leftAt)/1000);if(away<+L||away<1)return false;failFocus(away);return true}
+setTimeout(leaveCheck,300); // the app was closed during a focus and opened again later""")
+
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
