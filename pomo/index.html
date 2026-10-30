@@ -74,6 +74,7 @@ svg{display:block}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:16;background:var(--bg)}
 .topin{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:16px;height:58px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .brand{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.02em;display:flex;align-items:center;gap:8px;white-space:nowrap}
+#brand{cursor:pointer;border-radius:10px}#brand:active{opacity:.6}
 .brand i{width:11px;height:11px;border-radius:50%;background:var(--accent);transition:background .4s}
 .tabs{display:flex;gap:2px;margin-left:8px}
 .tabs button{display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:10px;color:var(--muted);font-weight:500;font-size:14px}
@@ -998,7 +999,7 @@ body.dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 </style>
 
 <header class="top"><div class="topin">
-  <div class="brand"><i></i>Pomo Timer</div>
+  <div class="brand" id="brand" role="button" tabindex="0" title="押すと再読み込みします"><i></i>Pomo Timer</div>
   <nav class="tabs" id="tabs" aria-label="画面">
     <button data-v="home"><svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="6" cy="10" rx="2.2" ry="2.8"/><ellipse cx="10" cy="6" rx="2.2" ry="2.8"/><ellipse cx="14.5" cy="6" rx="2.2" ry="2.8"/><ellipse cx="18.5" cy="10" rx="2.2" ry="2.8"/><path d="M12.2 11.5c-3 0-6 3.6-6 6.2 0 1.8 1.5 2.6 3 2.3 1.2-.2 2-.6 3-.6s1.8.4 3 .6c1.5.3 3-.5 3-2.3 0-2.6-3-6.2-6-6.2z"/></svg>相棒</button>
     <button data-v="timer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>学習</button>
@@ -4771,6 +4772,8 @@ async function importSched(){const d=await loadSched();
   if(!p.rv.length&&!p.tk.length&&!p.mm.length){toast('引き継ぐものはありません（すべて取り込み済みです）');return}
   confirmBox(`学習スケジューラーから取り込みます。\n・復習 ${p.rv.length}件（予定あり ${on}件／予定が終わったもの ${p.rv.length-on}件は一時停止で保存）\n・未完了のタスク ${p.tk.length}件\n・メモ ${p.mm.length}件\n学習時間の記録・連続日数は引き継がれません。`,'取り込む',()=>{
     st.reviews.push(...p.rv);st.tasks.push(...p.tk);st.memos.push(...p.mm);save();renderView();toast(`取り込みました（復習 ${p.rv.length}・タスク ${p.tk.length}・メモ ${p.mm.length}）`)})}
+async function reloadApp(){toast('再読み込みしています…');try{if(Sync.col)await Sync.flushAll()}catch(e){}location.reload()}
+$('#brand').addEventListener('click',reloadApp);$('#brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();reloadApp()}});
 async function saveFile(name,data){try{const dl=window.claude&&window.claude.use?await claude.use('downloads'):null;if(dl){await dl.save({filename:name,data});toast('保存しました: '+name);return true}}catch(e){if(e&&e.code==='declined')return false;if(e&&e.code&&e.code!=='unavailable'){toast('保存できませんでした（'+e.code+'）');return false}}
   try{const blob=data instanceof Blob?data:new Blob([data]);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);return true}catch(e){toast('この環境では保存できません');return false}}
 let exporting=false;

@@ -78,6 +78,12 @@ rep("""<div class="pr"><span>バックアップ<small>JSONファイルで保存�
 """${window.PomoCloud?'<div class="pr"><span>学習スケジューラーから引き継ぐ<small>復習の予定・未完了のタスク・メモを取り込みます（何度押しても重複しません）</small></span><button class="btn" id="d_sched">引き継ぐ</button></div>':''}<div class="pr"><span>バックアップ<small>JSONファイルで保存・復元</small></span>""")
 rep("""  if(t.id==='d_login'){cloudLogin();return}""","""  if(t.id==='d_login'){cloudLogin();return}
   if(t.id==='d_sched'){importSched();return}""")
+# brand: tap to reload (latest app version + latest synced data), after sending pending writes
+rep('<div class="brand"><i></i>Pomo Timer</div>','<div class="brand" id="brand" role="button" tabindex="0" title="押すと再読み込みします"><i></i>Pomo Timer</div>')
+rep('.brand i{','#brand{cursor:pointer;border-radius:10px}#brand:active{opacity:.6}\n.brand i{')
+rep("""/*@cloud*/""","""/*@cloud*/
+async function reloadApp(){toast('再読み込みしています…');try{if(Sync.col)await Sync.flushAll()}catch(e){}location.reload()}
+$('#brand').addEventListener('click',reloadApp);$('#brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();reloadApp()}});""")
 rep("""/*@cloud*/""","""/*@cloud*/
 /* 学習スケジューラー → Pomo Timer. Source: Firestore users/{uid} when signed in, else this origin's localStorage.
    tasks{name,reviews[],doneDates[],startDate} -> st.reviews, unfinished todos{name,date} -> st.tasks, memo -> st.memos */
