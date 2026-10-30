@@ -32,8 +32,10 @@ window.PomoCloud=(()=>{
     get user(){return auth.currentUser},
     col(uid){return fs.collection('pomo/'+uid+'/docs')},
     async schedDoc(uid){const d=await fs.doc('users/'+uid).get();return d.exists?d.data():null},
-    signIn(){return auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())},
-    signOut(){return auth.signOut()}};
+    async signIn(){const p=new firebase.auth.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});return (await auth.signInWithPopup(p)).user},
+    signOut(){return auth.signOut()},
+    async hasCloud(uid){return (await fs.doc('pomo/'+uid+'/docs/state').get()).exists},
+    async deleteCloud(uid){const q=await fs.collection('pomo/'+uid+'/docs').get(),b=fs.batch();q.docs.forEach(d=>b.delete(d.ref));await b.commit()}};
 })();
 </script>
 '''
@@ -45,11 +47,8 @@ rep("""    if(!window.claude||!window.claude.use){this.set('','この端末に�
 """    if(!window.claude||!window.claude.use){
       const pc=window.PomoCloud;if(!pc){this.set('','この端末に保存');return}
       const u=await pc.ready;
-      if(!u){this.set('login','この端末に保存 · ログイン','クリックすると Google でログインし、端末間で同期します');
-        if(!LS.get('loginHint',false)){LS.set('loginHint',true);setTimeout(()=>toast('Google でログインすると、ほかの端末と記録を同期できます','ログイン',cloudLogin),2500)}return}
-      this.col=pc.col(u.uid);this.set('','同期中…');
-      this.col.onSnapshot(snap=>this.onSnap(snap),err=>this.set('err','同期エラー','この端末には保存されています: '+(err&&err.code||'')));
-      return}""")
+      if(!u){this.set('login','この端末に保存 · ログイン','押すと Google でログインし、端末間で同期します');return}
+      this.attach(u);return}""")
 
 # 3. settings row: account status + login / logout
 rep("""<div class="pr"><span>同期<small>${Sync.col?'同じアカウントで開いた端末どうしで自動同期しています':'この端末のブラウザに保存中。claude.ai にサインインして開くと同期されます'}</small></span></div>""",
@@ -59,19 +58,12 @@ rep("""<div class="pr"><span>同期<small>${Sync.col?'同じアカウントで�
 rep("""  if(t.id==='d_export')exportData();if(t.id==='d_import')$('#importFile').click();""",
 """  if(t.id==='d_export')exportData();if(t.id==='d_import')$('#importFile').click();
   if(t.id==='d_login'){cloudLogin();return}
-  if(t.id==='d_logout'){confirmBox('ログアウトしますか？この端末に保存されたデータも消去されます（クラウドのデータは残ります）。','ログアウト',async()=>{await PomoCloud.signOut();for(const k of Object.keys(localStorage))if(k.startsWith('pf2_'))localStorage.removeItem(k);location.reload()});return}""")
+  if(t.id==='d_logout'){cloudLogout();return}""")
 
 rep("""async function saveFile(name,data){""",
 """if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(importSched,1200))}
-async function cloudLogin(){try{await PomoCloud.signIn();location.reload()}catch(e){if(e&&e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request')toast('ログインできませんでした（'+(e.code||e.message||'')+'）')}}
+/*@cloud*/
 async function saveFile(name,data){""")
-
-# top-bar sync indicator: logged out -> sign in, signed in -> open settings
-rep("""Sync.init();""","""if(window.PomoCloud&&!(window.claude&&window.claude.use)){const sy=$('#sync');sy.classList.add('tap');sy.setAttribute('role','button');sy.tabIndex=0;
-  const act=()=>{if(!Sync.col)cloudLogin();else go('prefs')};sy.addEventListener('click',act);sy.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act()}})}
-Sync.init();""")
-rep('.sync.on b{background:var(--tree)} .sync.err b{background:var(--pri1)}',
-    '.sync.on b{background:var(--tree)} .sync.err b{background:var(--pri1)}\n.sync.tap{cursor:pointer;padding:4px 10px;border-radius:999px}.sync.tap:hover{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}.sync.login b{background:var(--focus)}')
 
 rep('.modal .box p{margin:0;font-size:14.5px}','.modal .box p{margin:0;font-size:14.5px;white-space:pre-line}')
 # settings: denser rows, full width, masonry columns (no holes between panels of different heights)
@@ -86,7 +78,8 @@ rep("""<div class="pr"><span>バックアップ<small>JSONファイルで保存�
 """${window.PomoCloud?'<div class="pr"><span>学習スケジューラーから引き継ぐ<small>復習の予定・未完了のタスク・メモを取り込みます（何度押しても重複しません）</small></span><button class="btn" id="d_sched">引き継ぐ</button></div>':''}<div class="pr"><span>バックアップ<small>JSONファイルで保存・復元</small></span>""")
 rep("""  if(t.id==='d_login'){cloudLogin();return}""","""  if(t.id==='d_login'){cloudLogin();return}
   if(t.id==='d_sched'){importSched();return}""")
-rep("""async function cloudLogin(){""","""/* 学習スケジューラー → Pomo Timer. Source: Firestore users/{uid} when signed in, else this origin's localStorage.
+rep("""/*@cloud*/""","""/*@cloud*/
+/* 学習スケジューラー → Pomo Timer. Source: Firestore users/{uid} when signed in, else this origin's localStorage.
    tasks{name,reviews[],doneDates[],startDate} -> st.reviews, unfinished todos{name,date} -> st.tasks, memo -> st.memos */
 async function loadSched(){let d=null;
   if(window.PomoCloud&&PomoCloud.user){try{d=await PomoCloud.schedDoc(PomoCloud.user.uid)}catch(e){}}
@@ -111,8 +104,91 @@ async function importSched(){const d=await loadSched();
   const p=schedPlan(d),on=p.rv.filter(x=>!x.paused).length;
   if(!p.rv.length&&!p.tk.length&&!p.mm.length){toast('引き継ぐものはありません（すべて取り込み済みです）');return}
   confirmBox(`学習スケジューラーから取り込みます。\\n・復習 ${p.rv.length}件（予定あり ${on}件／予定が終わったもの ${p.rv.length-on}件は一時停止で保存）\\n・未完了のタスク ${p.tk.length}件\\n・メモ ${p.mm.length}件\\n学習時間の記録・連続日数は引き継がれません。`,'取り込む',()=>{
-    st.reviews.push(...p.rv);st.tasks.push(...p.tk);st.memos.push(...p.mm);save();renderPrefs();toast(`取り込みました（復習 ${p.rv.length}・タスク ${p.tk.length}・メモ ${p.mm.length}）`)})}
-async function cloudLogin(){""")
+    st.reviews.push(...p.rv);st.tasks.push(...p.tk);st.memos.push(...p.mm);save();renderView();toast(`取り込みました（復習 ${p.rv.length}・タスク ${p.tk.length}・メモ ${p.mm.length}）`)})}""")
+
+# ---- account (Google login) UX ----
+rep('<div class="sync" id="sync"><b></b><span id="syncText">この端末に保存</span></div>',
+    '<div class="sync" id="sync"><svg class="sync-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 1 0-1.4-8.8A6 6 0 0 0 4.3 12.5 3.5 3.5 0 0 0 6.5 19z"/></svg><b></b><span id="syncText">この端末に保存</span></div>')
+rep('.sync.on b{background:var(--tree)} .sync.err b{background:var(--pri1)}', """.sync.on b{background:var(--tree)} .sync.err b{background:var(--pri1)}
+.sync-ic{display:none;width:17px;height:17px;flex:none}
+.sync.tap{display:flex!important;cursor:pointer;padding:4px 10px;border-radius:999px;position:relative}.sync.tap:hover,.sync.tap[aria-expanded="true"]{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}.sync.login b{background:var(--focus)}
+@media(max-width:1000px){.sync.tap{padding:0;width:34px;height:34px;justify-content:center;border-radius:10px;flex:none}.sync.tap .sync-ic{display:block}.sync.tap #syncText{display:none!important}.sync.tap b{position:absolute;right:4px;top:5px;box-shadow:0 0 0 2px var(--bg)}
+  .sync.tap.login{width:auto;padding:0 9px;color:var(--fg);box-shadow:0 0 0 1px var(--line);background:var(--surface)}.sync.tap.login b,.sync.tap.login .sync-ic{display:none}.sync.tap.login::after{content:"ログイン";font-size:12.5px;font-weight:600}}
+@media(max-width:440px){.brand{font-size:16px;gap:6px}.topin{gap:6px!important}.topin .gear{width:30px}
+  .sync.tap.login{width:34px;padding:0;color:var(--focus)}.sync.tap.login::after{content:none}.sync.tap.login .sync-ic{display:block}.sync.tap.login b{display:block;background:var(--focus);animation:pulse 1.6s ease-in-out infinite}}
+.acct{position:fixed;z-index:50;top:calc(62px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));width:min(330px,calc(100% - 24px));background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 40px -16px rgba(0,0,0,.35);padding:14px;display:flex;flex-direction:column;gap:10px}
+.acct .who{display:flex;align-items:center;gap:10px;min-width:0}
+.acct .av{width:38px;height:38px;border-radius:50%;flex:none;background:var(--sunk);display:grid;place-items:center;font-weight:700;overflow:hidden}.acct .av img{width:100%;height:100%;object-fit:cover}
+.acct .who div{min-width:0}.acct .who b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.acct .who small{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct .stl{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);background:var(--sunk);border-radius:10px;padding:7px 10px}.acct .stl b{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}.acct .stl.on b{background:var(--tree)}.acct .stl.err b{background:var(--pri1)}
+.acct .ocopts button{padding:8px 12px}.acct a{font-size:12px;color:var(--muted);text-align:center}
+.acctdlg .box{max-width:440px}.acctdlg h3{font-family:var(--display);margin:0;font-size:18px}""")
+rep('<div class="modal" id="modal" hidden>', '<div class="acct" id="acct" hidden role="dialog" aria-label="アカウント"></div><div class="modal acctdlg" id="acctDlg" hidden><div class="box"><h3 id="adTitle"></h3><p id="adMsg"></p><div class="ocopts" id="adOpts"></div></div></div><div class="modal" id="modal" hidden>')
+
+# Sync: attach / detach / flush pending writes before sign-out
+rep("""const Sync={col:null,ready:false,pend:{},busy:{},stateTimer:null,first:true,""","""const Sync={col:null,ready:false,pend:{},busy:{},stateTimer:null,first:true,unsub:null,
+  attach(u){this.col=PomoCloud.col(u.uid);this.set('','同期中…');LS.set('cloudUid',u.uid);
+    this.unsub=this.col.onSnapshot(snap=>this.onSnap(snap),err=>this.set('err','同期エラー','この端末には保存されています: '+(err&&err.code||'')))},
+  detach(){if(this.unsub)this.unsub();this.unsub=null;this.col=null;this.ready=false;this.first=true},
+  async flushAll(){clearTimeout(this.stateTimer);if(this.col&&this.ready)this.pushStateNow();const idle=()=>!Object.keys(this.pend).length&&!Object.values(this.busy).some(Boolean);
+    for(const t0=Date.now();!idle()&&Date.now()-t0<8000;)await new Promise(r=>setTimeout(r,150));return idle()},""")
+rep("""  set(cls,txt,title){const el=$('#sync');el.className='sync '+cls;$('#syncText').textContent=txt;el.title=title||''},""",
+"""  set(cls,txt,title){const el=$('#sync');el.className='sync '+cls+(el.classList.contains('tap')?' tap':'');$('#syncText').textContent=txt;el.title=title||'';if(!$('#acct').hidden)acctRender()},""")
+
+# nudge to sign in after the first finished focus session (instead of on first visit)
+rep("""function addSession(s){""","""function addSession(s){loginNudge(s);""")
+
+rep("""/*@cloud*/""","""const INAPP=/Line\\/|FBAN|FBAV|FB_IAB|Instagram|Twitter|MicroMessenger|KAKAOTALK|; wv\\)/i.test(navigator.userAgent);
+const AUTH_ERR={'auth/popup-blocked':'ポップアップがブロックされました。もう一度ログインを押してください',
+  'auth/network-request-failed':'通信できませんでした。電波のよい場所でもう一度お試しください',
+  'auth/too-many-requests':'しばらく時間をおいてからお試しください',
+  'auth/internal-error':'ログインに失敗しました。もう一度お試しください',
+  'auth/web-storage-unsupported':'このブラウザの設定ではログインできません。Cookie を許可するか、別のブラウザでお試しください',
+  'auth/unauthorized-domain':'このアドレスでのログインがまだ許可されていません（管理者：Firebase の承認済みドメインに追加してください）',
+  'auth/operation-not-allowed':'Google ログインがまだ有効になっていません（管理者：Firebase で Google を有効にしてください）'};
+const authErr=e=>AUTH_ERR[e&&e.code]||'ログインできませんでした'+(e&&e.code?'（'+e.code+'）':'');
+const cloudOn=()=>!!window.PomoCloud&&!(window.claude&&window.claude.use);
+function choose(title,msg,opts){return new Promise(res=>{$('#adTitle').textContent=title;$('#adMsg').textContent=msg;
+  $('#adOpts').innerHTML=opts.map(([k,l,sub,cls])=>`<button data-k="${k}" class="${cls||''}">${esc(l)}${sub?`<small>${esc(sub)}</small>`:''}</button>`).join('');
+  const dl=$('#acctDlg');dl.hidden=false;$('#adOpts').onclick=e=>{const b=e.target.closest('[data-k]');if(!b)return;dl.hidden=true;res(b.dataset.k)}})}
+const localHasData=()=>Object.values(months).some(a=>(a||[]).some(x=>!x.del))||st.tasks.some(x=>!isSample(x))||st.books.some(x=>!isSample(x))||st.reviews.some(x=>!isSample(x));
+async function cloudLogin(){if(!cloudOn())return;acctClose();
+  if(INAPP){const k=await choose('ブラウザで開いてください','LINE や Instagram などのアプリの中で開いたページでは、Google の決まりでログインできません。\\n右上（または右下）のメニューから「ブラウザで開く」を選ぶか、アドレスをコピーして Safari や Chrome で開いてください。',[['copy','アドレスをコピー',location.origin+location.pathname],['close','閉じる']]);
+    if(k==='copy'){try{await navigator.clipboard.writeText(location.origin+location.pathname);toast('コピーしました。Safari や Chrome に貼り付けて開いてください')}catch(e){toast(location.origin+location.pathname)}}return}
+  let u;try{u=await PomoCloud.signIn()}catch(e){if(e&&(e.code==='auth/popup-closed-by-user'||e.code==='auth/cancelled-popup-request'||e.code==='auth/user-cancelled'))return;toast(authErr(e));return}
+  if(LS.get('cloudUid',null)!==u.uid&&localHasData()){let cloud=false;try{cloud=await PomoCloud.hasCloud(u.uid)}catch(e){}
+    if(cloud){const k=await choose('この端末の記録をどうしますか？',`${u.email||'このアカウント'} には、ほかの端末で保存した記録があります。この端末にも記録があります。`,
+      [['merge','両方の記録をまとめる','この端末の記録をアカウントに合わせて保存します'],['cloud','アカウントの記録だけを使う','この端末の記録は使わず、アカウントの記録に置き換えます'],['cancel','ログインをやめる','この端末だけで使い続けます']]);
+      if(k==='cancel'){await PomoCloud.signOut();return}
+      if(k==='cloud'){st.updatedAt=0;months={};dataVer++}}}
+  Sync.attach(u);toast(`${u.email||''} でログインしました`);renderView()}
+function loginNudge(s){if(!cloudOn()||Sync.col||LS.get('loginHint',false)||s.k==='b'||!s.ok||s.manual)return;LS.set('loginHint',true);
+  setTimeout(()=>toast('おつかれさまでした。この記録をスマホやPCでも見られるようにしませんか？','Google でログイン',cloudLogin),1800)}
+async function signOutClear(after){Sync.detach();await PomoCloud.signOut();for(const k of Object.keys(localStorage))if(k.startsWith('pf2_'))localStorage.removeItem(k);if(after)try{sessionStorage.setItem('pomoAfter',after)}catch(e){}location.reload()}
+function cloudLogout(after){acctClose();confirmBox(`${after==='login'?'別のアカウントに切り替えます。':'ログアウトしますか？'}\\n・この端末に保存された Pomo Timer のデータは消去されます（アカウントには残ります）\\n・同じアドレスの学習スケジューラーからもログアウトされます`,after==='login'?'切り替える':'ログアウト',async()=>{
+  toast('保存しています…');if(await Sync.flushAll()){signOutClear(after);return}
+  confirmBox('まだ送信できていない記録があります。今ログアウトすると、その分が失われる可能性があります。\\n通信できる場所でもう一度お試しください。','それでもログアウト',()=>signOutClear(after))})}
+function cloudDelete(){const u=PomoCloud.user;if(!u)return;acctClose();
+  confirmBox(`${u.email||''} の Pomo Timer のデータをクラウドからすべて削除し、ログアウトします。\\n・この端末のデータは残ります（このまま端末だけで使えます）\\n・学習スケジューラーのデータは削除されません\\n元に戻せません。`,'削除する',async()=>{
+    Sync.detach();try{await PomoCloud.deleteCloud(u.uid)}catch(e){toast('削除できませんでした（'+(e&&e.code||'')+'）');Sync.attach(u);return}
+    LS.set('cloudUid',null);await PomoCloud.signOut();Sync.set('login','この端末に保存 · ログイン','押すと Google でログインし、端末間で同期します');toast('クラウドのデータを削除しました')})}
+function acctRender(){const u=PomoCloud.user,el=$('#acct');if(!u){acctClose();return}const sy=$('#sync');
+  const st0=sy.classList.contains('on')?'on':sy.classList.contains('err')?'err':'',nm=u.displayName||u.email||'';
+  el.innerHTML=`<div class="who"><span class="av">${u.photoURL?`<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">`:esc([...nm][0]||'?')}</span><div><b>${esc(nm)}</b><small>${esc(u.email||'')}</small></div></div>
+  <div class="stl ${st0}"><b></b><span>${esc($('#syncText').textContent)}${st0==='on'?' · このアカウントの端末どうしで自動同期':''}</span></div>
+  <div class="ocopts"><button data-a="sched">学習スケジューラーから引き継ぐ<small>復習の予定・ToDo・メモを取り込む</small></button>
+  <button data-a="switch">別のアカウントに切り替え</button><button data-a="logout">ログアウト</button>
+  <button data-a="delete" class="danger">クラウドのデータを削除</button></div><a href="privacy.html" target="_blank" rel="noopener">データの扱いについて</a>`}
+function acctOpen(){acctRender();$('#acct').hidden=false;$('#sync').setAttribute('aria-expanded','true')}
+function acctClose(){const el=$('#acct');if(el)el.hidden=true;const sy=$('#sync');if(sy)sy.setAttribute('aria-expanded','false')}
+if(cloudOn()){const sy=$('#sync');sy.classList.add('tap');sy.setAttribute('role','button');sy.tabIndex=0;sy.setAttribute('aria-expanded','false');
+  const act=()=>{if(!PomoCloud.user||!Sync.col){cloudLogin();return}$('#acct').hidden?acctOpen():acctClose()};
+  sy.addEventListener('click',e=>{e.stopPropagation();act()});sy.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act()}});
+  $('#acct').addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;
+    if(a==='sched'){acctClose();importSched()}else if(a==='switch')cloudLogout('login');else if(a==='logout')cloudLogout();else if(a==='delete')cloudDelete()});
+  document.addEventListener('click',()=>{if(!$('#acct').hidden)acctClose()});document.addEventListener('keydown',e=>{if(e.key==='Escape')acctClose()});
+  let after=null;try{after=sessionStorage.getItem('pomoAfter');sessionStorage.removeItem('pomoAfter')}catch(e){}
+  if(after==='login')setTimeout(()=>toast('切り替えるアカウントでログインしてください','Google でログイン',cloudLogin),800)}""")
 
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
