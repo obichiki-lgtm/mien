@@ -4719,6 +4719,13 @@ const libP={};
 function loadLib(k){return libP[k]||(libP[k]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=LIBS[k];s.onload=()=>res();s.onerror=()=>{delete libP[k];rej(new Error('load '+k))};document.head.appendChild(s)}))}
 if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(()=>importSched(true),1200))}
 /*@cloud*/
+const PET_IMG={'dog/shiba':['0','1','2','3','4','3_happy','3_sad','3_tired','3_focus']};
+function petImgSVG(p,lv,mood,cls){if(!p)return '';const have=PET_IMG[p.kind+'/'+p.v];if(!have)return '';
+  const K=PETS[p.kind]||PETS.tree,V=K.v[p.v]||Object.values(K.v)[0],stage=petStage(lv);
+  const want=stage===0||/\bstill\b/.test(cls||'')?null:/\bgo\b/.test(cls||'')?'focus':['happy',null,'sad','tired','tired'][mood];
+  const name=want&&have.includes(stage+'_'+want)?stage+'_'+want:String(stage),sc=stage===0?.8:[1,.7,.82,.94,1][stage];
+  return `<svg viewBox="0 0 200 200" class="pet m${mood} ${cls||''}" role="img" aria-label="${esc(K.n+'・'+V[0]+'・'+K.st[stage]+'・'+(MOOD[mood]?MOOD[mood][0]:'おやすみ'))}"><ellipse cx="100" cy="189" rx="${52*sc}" ry="6" fill="#000" opacity=".1"/>
+    <g class="pbody"><image href="pets/${p.kind}/${p.v}/${name}.webp" x="0" y="5" width="200" height="200" preserveAspectRatio="xMidYMid meet"/></g></svg>`}
 $('#schedFile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const r=new FileReader();r.onload=()=>{let o=null;try{o=JSON.parse(r.result)}catch(x){}importSchedData(o&&o.app==='study-scheduler'?o:null)};r.readAsText(f)};
 if(window.PomoCloud&&!(window.claude&&window.claude.use)){$('#fbFoot').hidden=false;$('#d_fb').onclick=()=>fbOpen()}
 function fbOpen(){const d=$('#fbDlg');d.hidden=false;const ta=$('#fbText');$('#fbCount').textContent=[...ta.value].length+' / 2000';setTimeout(()=>ta.focus(),50)}
@@ -4951,7 +4958,7 @@ function animalArt(kind,V,stage,mood){const [,c1,c2,c3,ear,pat]=V,dk=isDark(c1),
   if(stage===3&&kind==='dog')h+=`<path d="M70 ${hy+38} q30 12 60 0" stroke="#D9452B" stroke-width="7" fill="none" stroke-linecap="round"/><circle cx="100" cy="${hy+46}" r="5" fill="#F6C945"/>`;
   if(stage===4&&kind!=='fox')h+=`<path d="M84 ${hy-hr+2} L88 ${hy-hr-16} L96 ${hy-hr-6} L100 ${hy-hr-20} L104 ${hy-hr-6} L112 ${hy-hr-16} L116 ${hy-hr+2} Z" fill="#F6C945" stroke="#D9A72C" stroke-width="1.5"/>`;
   return h}
-function petSVG(p,lv,mood,cls){p=p||{kind:'tree',v:'keyaki'};const K=PETS[p.kind]||PETS.tree,V=K.v[p.v]||Object.values(K.v)[0],stage=petStage(lv);
+function petSVG(p,lv,mood,cls){const _img=petImgSVG(p,lv,mood,cls);if(_img)return _img;p=p||{kind:'tree',v:'keyaki'};const K=PETS[p.kind]||PETS.tree,V=K.v[p.v]||Object.values(K.v)[0],stage=petStage(lv);
   const inner=p.kind==='tree'?treeArt(V,stage,mood):stage===0?eggArt(V,mood,p.kind):animalArt(p.kind,V,stage,mood);
   const sc=p.kind==='tree'||stage===0?1:[1,.66,.8,.92,1][stage];
   return `<svg viewBox="0 0 200 200" class="pet m${mood} ${cls||''}" role="img" aria-label="${esc(K.n+'・'+V[0]+'・'+K.st[stage]+'・'+(MOOD[mood]?MOOD[mood][0]:'おやすみ'))}"><ellipse cx="100" cy="189" rx="${48*sc}" ry="6" fill="#000" opacity=".1"/>
@@ -5116,7 +5123,7 @@ let buddyKey='',buddyCheer=0;
 function renderBuddy(){const el=$('#buddy'),bb=$('#bubble');if(!el)return;if(!st.pet||pane==='alarm'){el.hidden=true;bb.hidden=true;buddyKey='';const fb=$('#fsBuddy');if(fb)fb.innerHTML='';return}
   const cheer=Date.now()<buddyCheer,cu=isCU(),s8=cheer?'cheer':T.overrunSince?'wait':(!cu&&T.mode!=='focus')?'sleep':T.running?'go':'idle';
   const lv=LS.get('lv',1),mood=s8==='sleep'?4:s8==='wait'?2:s8==='idle'?petMood():0,key=s8+'|'+st.pet.kind+st.pet.v+'|'+lv+'|'+mood;if(key===buddyKey)return;buddyKey=key;
-  el.hidden=false;el.innerHTML=petSVG(st.pet,lv,mood,s8==='cheer'?'jump':'');const fb=$('#fsBuddy');if(fb)fb.innerHTML=el.innerHTML;
+  el.hidden=false;el.innerHTML=petSVG(st.pet,lv,mood,s8==='cheer'?'jump':s8==='go'?'go':'');const fb=$('#fsBuddy');if(fb)fb.innerHTML=el.innerHTML;
   const M={go:['がんばれ！','いっしょに集中！','いい調子！','その調子！'],sleep:['すやすや…','ひと休み…','Zzz…'],cheer:['おつかれさま！','やったね！','ナイス集中！'],wait:['まだかな…','早く戻ってきて〜','そろそろ始めよう！'],idle:mood>=2?['会いたかった…','1ポモだけやろう？']:['いっしょに始めよう','準備OK！']}[s8];
   bb.textContent=M[Math.floor(Math.random()*M.length)];bb.hidden=false;bb.className='bubble b-'+s8}
 $('#buddy').onclick=()=>go('home');
@@ -5140,7 +5147,7 @@ function openPetPicker(){const cur=st.pet||{kind:'dog',v:'shiba',name:''};let ki
     const draw=()=>{const K=PETS[kind];if(!K.v[v])v=Object.keys(K.v)[0];
       $('#pk_kind').innerHTML=Object.entries(PETS).map(([k,x])=>`<button type="button" class="chip" data-k="${k}" aria-pressed="${k===kind}">${x.n}</button>`).join('');
       $('#pk_var').innerHTML=Object.entries(K.v).map(([k,x])=>`<button type="button" class="chip" data-v="${k}" aria-pressed="${k===v}"><i style="background:${x[1]};border:1px solid var(--line)"></i><span>${esc(x[0])}</span></button>`).join('');
-      $('#pk_prev').innerHTML=[1,3,6,12,20].map((l,i)=>`<div class="${petStage(lv)===i?'cur':''}">${petSVG({kind,v},l,0)}<small>${K.st[i]}</small></div>`).join('');
+      $('#pk_prev').innerHTML=[1,3,6,12,20].map((l,i)=>`<div class="${petStage(lv)===i?'cur':''}">${petSVG({kind,v},l,0,'still')}<small>${K.st[i]}</small></div>`).join('');
       $('#pk_st').textContent=`いまのレベル ${lv}：「${K.st[petStage(lv)]}」から始まります`};draw();
     $('#pk_kind').onclick=e=>{const b=e.target.closest('[data-k]');if(!b)return;kind=b.dataset.k;v=Object.keys(PETS[kind].v)[0];draw()};
     $('#pk_var').onclick=e=>{const b=e.target.closest('[data-v]');if(!b)return;v=b.dataset.v;draw()};

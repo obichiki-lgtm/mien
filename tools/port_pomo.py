@@ -264,5 +264,19 @@ rep('<input type="file" id="importFile" accept=".json,application/json" hidden>'
 rep("const o=JSON.parse(r.result);if(o.app!=='pomo-timer'||!o.state)throw 0;","const o=JSON.parse(r.result);if(o.app==='study-scheduler'){e.target.value='';importSchedData(o);return}if(o.app!=='pomo-timer'||!o.state)throw 0;")
 rep("""/*@cloud*/""","""/*@cloud*/
 $('#schedFile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const r=new FileReader();r.onload=()=>{let o=null;try{o=JSON.parse(r.result)}catch(x){}importSchedData(o&&o.app==='study-scheduler'?o:null)};r.readAsText(f)};""")
+# pet illustrations (pomo/pets/<kind>/<breed>/<stage>[_mood].webp, made by tools/pets_process.py):
+# when a breed has pictures, petSVG draws them inside the same <svg class="pet"> so the existing motion keeps working
+rep("function petSVG(p,lv,mood,cls){","function petSVG(p,lv,mood,cls){const _img=petImgSVG(p,lv,mood,cls);if(_img)return _img;")
+rep("petSVG({kind,v},l,0)","petSVG({kind,v},l,0,'still')")
+rep("el.innerHTML=petSVG(st.pet,lv,mood,s8==='cheer'?'jump':'');","el.innerHTML=petSVG(st.pet,lv,mood,s8==='cheer'?'jump':s8==='go'?'go':'');")
+rep("""/*@cloud*/""","""/*@cloud*/
+const PET_IMG={'dog/shiba':['0','1','2','3','4','3_happy','3_sad','3_tired','3_focus']};
+function petImgSVG(p,lv,mood,cls){if(!p)return '';const have=PET_IMG[p.kind+'/'+p.v];if(!have)return '';
+  const K=PETS[p.kind]||PETS.tree,V=K.v[p.v]||Object.values(K.v)[0],stage=petStage(lv);
+  const want=stage===0||/\\bstill\\b/.test(cls||'')?null:/\\bgo\\b/.test(cls||'')?'focus':['happy',null,'sad','tired','tired'][mood];
+  const name=want&&have.includes(stage+'_'+want)?stage+'_'+want:String(stage),sc=stage===0?.8:[1,.7,.82,.94,1][stage];
+  return `<svg viewBox="0 0 200 200" class="pet m${mood} ${cls||''}" role="img" aria-label="${esc(K.n+'・'+V[0]+'・'+K.st[stage]+'・'+(MOOD[mood]?MOOD[mood][0]:'おやすみ'))}"><ellipse cx="100" cy="189" rx="${52*sc}" ry="6" fill="#000" opacity=".1"/>
+    <g class="pbody"><image href="pets/${p.kind}/${p.v}/${name}.webp" x="0" y="5" width="200" height="200" preserveAspectRatio="xMidYMid meet"/></g></svg>`}""")
+
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
