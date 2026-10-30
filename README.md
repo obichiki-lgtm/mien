@@ -17,7 +17,8 @@ claude.ai の Artifact「Pomo Timer」を一般公開用に移植したもの。
 ### 更新の流れ
 
 1. Claude Code の会話で Artifact を更新する
-2. Claude が最新の Artifact を読み込み、Firebase 対応の差分を当てて `pomo/` に反映し、GitHub に push する
+2. Claude が最新の Artifact を読み込み、Firebase 対応の差分を当てて変換する
+3. Claude が反映される変更を 1 件ずつ提示し、確認・承認を得てから `pomo/` に反映して GitHub に push する
 
 ### Firebase 側の設定（初回のみ）
 
