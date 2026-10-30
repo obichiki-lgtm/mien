@@ -1307,7 +1307,7 @@ const ICON={play:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>'};
 
 /* ================= state ================= */
-const DEF={pauseMax:3,calGroup:'none',calGroupMin:4,focus:25,short:5,long:15,interval:4,autoBreak:true,autoFocus:false,dandori:true,overCap:60,notifyMode:'both',vibFocus:true,vibBreak:true,vibNag:true,vibClock:true,vibPatFocus:'long3',vibPatBreak:'short4',vibPatNag:'pulse',vibPatClock:'long3',vibRepFocus:1,vibRepBreak:1,vibRepNag:1,vibRepClock:2,vibNagEvery:20,goal:8,dayStart:0,weeklyGoalH:10,
+const DEF={leavePen:45,pauseMax:3,calGroup:'none',calGroupMin:4,focus:25,short:5,long:15,interval:4,autoBreak:true,autoFocus:false,dandori:true,overCap:60,notifyMode:'both',vibFocus:true,vibBreak:true,vibNag:true,vibClock:true,vibPatFocus:'long3',vibPatBreak:'short4',vibPatNag:'pulse',vibPatClock:'long3',vibRepFocus:1,vibRepBreak:1,vibRepNag:1,vibRepClock:2,vibNagEvery:20,goal:8,dayStart:0,weeklyGoalH:10,
   alarmFocus:'bell',alarmBreak:'chime',alarmVol:.7,tick:'none',tickVol:.35,preNotice:0,
   noise:'none',mix:null,noiseVol:.8,noiseInBreak:false,strict:true,wake:true,accent:'tomato',
   focusRingSec:5,requireTask:'always',rvRetention:.9,rvMaxIvl:365,penalty:'tree',penGrace:1,penEvery:3,breakNag:true,nagCrescendo:true,nagMax:0,askRecord:true};
@@ -1771,7 +1771,7 @@ setInterval(()=>{if(!T.running)return;
   if(r<=0)complete()},200);
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden'){if(T.running&&T.mode==='focus'&&S.strict){T.int=(T.int||0)+1;T.leftAt=Date.now();persistT()}}
-  else{if(T.running)lockWake();if(T.leftAt&&T.running&&T.mode==='focus'&&S.strict){toast(`集中中にこの画面を離れました（${T.int}回目）`);T.leftAt=0}renderTimer()}});
+  else{if(T.running)lockWake();if(T.leftAt&&T.running&&T.mode==='focus'&&S.strict){if(leaveCheck())return;const L=S.leavePen??45;toast(`集中中にこの画面を離れました（${T.int}回目）${L==='off'?'':`。${L}秒以上離れると失敗になります`}`);T.leftAt=0}renderTimer()}});
 
 /* ================= dial ================= */
 const R=90,C=2*Math.PI*R,prog=$('#prog');prog.style.strokeDasharray=C;
@@ -4719,6 +4719,14 @@ const libP={};
 function loadLib(k){return libP[k]||(libP[k]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=LIBS[k];s.onload=()=>res();s.onerror=()=>{delete libP[k];rej(new Error('load '+k))};document.head.appendChild(s)}))}
 if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(()=>importSched(true),1200))}
 /*@cloud*/
+function failFocus(away){const ss=segSec();pause();
+  if(T.mode==='focus'&&T.startedAt&&ss>=60){const s=recordSession(false,ss);T.brkPend=s.id}
+  T.startedAt=0;T.segOff=0;T.segStart=0;T.contId=null;if(T.contPrev)endCont();
+  T.remaining=T.total=durFor(T.mode);T.elapsed=0;T.int=0;T.noticed=false;T.leftAt=0;T.pausedAt=0;persistT();renderAll();
+  toast(`${away>=120?Math.round(away/60)+'分':away+'秒'}離れたので、この集中は失敗になりました${ss>=60?'（森に枯れ木が1本）':''}`)}
+function leaveCheck(){const L=S.leavePen??45;if(L==='off'||!S.strict||!T.leftAt||!T.running||T.mode!=='focus'||!T.startedAt)return false;
+  const away=Math.round((Date.now()-T.leftAt)/1000);if(away<+L||away<1)return false;failFocus(away);return true}
+setTimeout(leaveCheck,300); // the app was closed during a focus and opened again later
 function pauseLeft(){const m=S.pauseMax??3;if(m==='none'||T.mode!=='focus'||!T.startedAt)return Infinity;return m*60-(T.pauseUsed||0)}
 function userPause(){const left=pauseLeft();
   if(left<=0){toast((S.pauseMax??3)===0?'集中中は一時停止できない設定です（設定 > 集中中の一時停止）':'この集中では、一時停止できる時間を使い切りました');return}
@@ -5211,6 +5219,7 @@ function renderPrefs(){setTimeout(filterPrefs,0);const A={tomato:'トマト',oce
   <div class="panel"><div class="ph"><h2>集中モード・表示</h2></div>
     <label class="pr"><span>集中中の一時停止<small>1回の集中で一時停止できる合計時間。過ぎると自動で再開します</small></span>${sel('p_pauseMax',{0:'しない',1:'1分まで',3:'3分まで',5:'5分まで',none:'制限なし'},S.pauseMax??3)}</label>
     <label class="pr"><span>離席を記録<small>集中中に他のタブ・アプリへ移ると数えます</small></span>${swc('p_strict',S.strict)}</label>
+    <label class="pr"><span>離れたときのペナルティ<small>集中中にこの時間以上アプリを離れると、その集中は失敗になります（画面を消した場合も含む）</small></span>${sel('p_leavePen',{off:'記録だけ',60:'60秒で失敗',45:'45秒で失敗',30:'30秒で失敗',10:'10秒で失敗',0:'すぐ失敗'},S.leavePen??45)}</label>
     <label class="pr"><span>画面をスリープさせない</span>${swc('p_wake',S.wake)}</label>
     <label class="pr"><span>ライト／ダーク<small>右上の月のボタンでも切り替えられます</small></span>${sel('p_theme',{system:'端末に合わせる',light:'ライト',dark:'ダーク'},S.theme||'system')}</label>
     <div class="pr"><span>テーマカラー<small>アプリのアイコンもこの色になります（インストール済みの場合、変わるまで時間がかかるか、入れ直しが必要です）</small></span><div class="swatches">${Object.entries(A).map(([k,n])=>`<button data-acc="${k}" aria-pressed="${S.accent===k}" title="${n}" aria-label="${n}" style="background:var(--acc-${k})"></button>`).join('')}</div></div></div>
@@ -5225,7 +5234,7 @@ function renderPrefs(){setTimeout(filterPrefs,0);const A={tomato:'トマト',oce
     <div class="pr"><span>学習の記録を消去<small>教材とタスクは残ります</small></span><button class="btn danger" id="d_resetLog">消去</button></div>
     <div class="pr"><span>すべて初期化</span><button class="btn danger" id="d_resetAll">初期化</button></div></div>`}
 const numKeys=['focus','short','long','interval','goal'],boolKeys=['autoBreak','autoFocus','vibFocus','vibBreak','vibNag','vibClock','noiseInBreak','strict','wake','breakNag','nagCrescendo','askRecord'],
-  selKeys=['pauseMax','theme','rvMaxIvl','preNotice','dayStart','alarmFocus','alarmBreak','tick','focusRingSec','nagMax','requireTask','penalty','penGrace','penEvery','dandori','overCap','notifyMode','vibPatFocus','vibPatBreak','vibPatNag','vibPatClock','vibRepFocus','vibRepBreak','vibRepNag','vibRepClock','vibNagEvery'],rngKeys=['alarmVol','tickVol','noiseVol'];
+  selKeys=['leavePen','pauseMax','theme','rvMaxIvl','preNotice','dayStart','alarmFocus','alarmBreak','tick','focusRingSec','nagMax','requireTask','penalty','penGrace','penEvery','dandori','overCap','notifyMode','vibPatFocus','vibPatBreak','vibPatNag','vibPatClock','vibRepFocus','vibRepBreak','vibRepNag','vibRepClock','vibNagEvery'],rngKeys=['alarmVol','tickVol','noiseVol'];
 let prefQ='';function filterPrefs(){const q=prefQ.toLowerCase();$$('#prefs > .panel').forEach(p=>{const head=(p.querySelector('.ph')||{}).textContent||'';let any=false;
   [...p.children].forEach(ch=>{if(ch.classList.contains('ph'))return;const hit=!q||head.toLowerCase().includes(q)||ch.textContent.toLowerCase().includes(q);ch.style.display=hit?'':'none';if(hit)any=true});p.hidden=!!q&&!any&&!head.toLowerCase().includes(q)});
   const none=q&&!$$('#prefs > .panel').some(p=>!p.hidden);let m=$('#prefNone');if(!m){m=document.createElement('div');m.id='prefNone';m.className='empty';$('#prefs').after(m)}m.textContent=none?`「${prefQ}」に一致する設定はありません`:'';m.hidden=!none}
