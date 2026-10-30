@@ -42,12 +42,17 @@ window.PomoCloud=(()=>{
 '''
 rep('<!doctype html><html><head>', '<!doctype html><html lang="ja"><head>')
 PWA = '''<link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#EDF0EE" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#101513" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#D9452B">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Pomo Timer">
+<script>/* app icon, tab icon, bar color and install manifest follow the theme color (tools/make_pomo_icons.py) */
+window.pomoIcon=function(a){var C={tomato:'#D9452B',ocean:'#2268B8',forest:'#2E8656',grape:'#7448BF',sumi:'#26302C'};if(!C[a])a='tomato';
+  var q=function(s){return document.querySelector(s)},d=a==='tomato'?'icons/':'icons/'+a+'/';
+  q('link[rel="manifest"]').href=a==='tomato'?'manifest.webmanifest':'manifest-'+a+'.webmanifest';
+  q('link[rel="icon"]').href=d+'icon-192.png';q('link[rel="apple-touch-icon"]').href=d+'apple-touch-icon.png';q('meta[name="theme-color"]').content=C[a]};
+try{pomoIcon(JSON.parse(localStorage.getItem('pf2_state')).settings.accent)}catch(e){}</script>
 <script>if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script>
 '''
 # PWA tags must be in <head> (Chrome ignores <link rel="manifest"> in <body>; the artifact puts <title> in <body>)
@@ -230,5 +235,8 @@ $('#fbYes').onclick=async()=>{const text=$('#fbText').value.trim();if(!text){toa
   catch(e){toast(e&&e.code==='timeout'?'送信できませんでした。通信できる場所でもう一度お試しください':'送信できませんでした（'+(e&&e.code||'')+'）')}
   finally{btn.disabled=false;btn.textContent='送る'}};""")
 
+# theme color -> icons (head script window.pomoIcon) + note about installed icon
+rep("function applyTheme(){document.body.dataset.accent=S.accent||'tomato';","function applyTheme(){document.body.dataset.accent=S.accent||'tomato';if(window.pomoIcon)pomoIcon(S.accent||'tomato');")
+rep('<div class="pr"><span>テーマカラー</span>','<div class="pr"><span>テーマカラー<small>アプリのアイコンもこの色になります（インストール済みの場合、変わるまで時間がかかるか、入れ直しが必要です）</small></span>')
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))

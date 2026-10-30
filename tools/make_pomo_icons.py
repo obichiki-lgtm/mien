@@ -1,7 +1,12 @@
 # Pomo Timer のアプリアイコン（PWA / ホーム画面用）を生成する: python3 tools/make_pomo_icons.py
 from PIL import Image, ImageDraw
 
-ACC, BG, W = (217, 69, 43), (237, 240, 238), (255, 255, 255)
+import json, os
+
+# テーマカラー（アプリの --acc-* ライト版）。tomato は既存のパス（icons/ 直下・manifest.webmanifest）を使う
+ACCENTS = {'tomato': '#D9452B', 'ocean': '#2268B8', 'forest': '#2E8656', 'grape': '#7448BF', 'sumi': '#26302C'}
+W = (255, 255, 255)
+ACC = None
 
 def draw(size, maskable=False, bg_full=False):
     s = 4  # supersample
@@ -23,8 +28,19 @@ def draw(size, maskable=False, bg_full=False):
     d.ellipse([c, cy - r - lh * 1.15, c + lw, cy - r + lh * 0.2], fill=W)
     return im.resize((size, size), Image.LANCZOS)
 
-draw(192).save('pomo/icons/icon-192.png')
-draw(512).save('pomo/icons/icon-512.png')
-draw(512, maskable=True).save('pomo/icons/maskable-512.png')
-draw(180, bg_full=True).convert('RGB').save('pomo/icons/apple-touch-icon.png')
+base = json.load(open('pomo/manifest.webmanifest', encoding='utf-8'))
+for name, hexc in ACCENTS.items():
+    ACC = tuple(int(hexc[i:i + 2], 16) for i in (1, 3, 5))
+    d = 'pomo/icons/' if name == 'tomato' else f'pomo/icons/{name}/'
+    os.makedirs(d, exist_ok=True)
+    draw(192).save(d + 'icon-192.png')
+    draw(512).save(d + 'icon-512.png')
+    draw(512, maskable=True).save(d + 'maskable-512.png')
+    draw(180, bg_full=True).convert('RGB').save(d + 'apple-touch-icon.png')
+    if name != 'tomato':
+        m = dict(base, theme_color=hexc)
+        m['icons'] = [dict(i, src=i['src'].replace('icons/', f'icons/{name}/', 1)) for i in base['icons']]
+        with open(f'pomo/manifest-{name}.webmanifest', 'w', encoding='utf-8') as f:
+            json.dump(m, f, ensure_ascii=False, indent=2)
+            f.write('\n')
 print('ok')

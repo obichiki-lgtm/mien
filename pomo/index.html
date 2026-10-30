@@ -1,11 +1,16 @@
 <!doctype html><html lang="ja"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#EDF0EE" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#101513" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#D9452B">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Pomo Timer">
+<script>/* app icon, tab icon, bar color and install manifest follow the theme color (tools/make_pomo_icons.py) */
+window.pomoIcon=function(a){var C={tomato:'#D9452B',ocean:'#2268B8',forest:'#2E8656',grape:'#7448BF',sumi:'#26302C'};if(!C[a])a='tomato';
+  var q=function(s){return document.querySelector(s)},d=a==='tomato'?'icons/':'icons/'+a+'/';
+  q('link[rel="manifest"]').href=a==='tomato'?'manifest.webmanifest':'manifest-'+a+'.webmanifest';
+  q('link[rel="icon"]').href=d+'icon-192.png';q('link[rel="apple-touch-icon"]').href=d+'apple-touch-icon.png';q('meta[name="theme-color"]').content=C[a]};
+try{pomoIcon(JSON.parse(localStorage.getItem('pf2_state')).settings.accent)}catch(e){}</script>
 <script>if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script>
 </head><body>
 <title>Pomo Timer</title>
@@ -5181,7 +5186,7 @@ function renderPrefs(){setTimeout(filterPrefs,0);const A={tomato:'トマト',oce
     <label class="pr"><span>離席を記録<small>集中中に他のタブ・アプリへ移ると数えます</small></span>${swc('p_strict',S.strict)}</label>
     <label class="pr"><span>画面をスリープさせない</span>${swc('p_wake',S.wake)}</label>
     <label class="pr"><span>ライト／ダーク<small>右上の月のボタンでも切り替えられます</small></span>${sel('p_theme',{system:'端末に合わせる',light:'ライト',dark:'ダーク'},S.theme||'system')}</label>
-    <div class="pr"><span>テーマカラー</span><div class="swatches">${Object.entries(A).map(([k,n])=>`<button data-acc="${k}" aria-pressed="${S.accent===k}" title="${n}" aria-label="${n}" style="background:var(--acc-${k})"></button>`).join('')}</div></div></div>
+    <div class="pr"><span>テーマカラー<small>アプリのアイコンもこの色になります（インストール済みの場合、変わるまで時間がかかるか、入れ直しが必要です）</small></span><div class="swatches">${Object.entries(A).map(([k,n])=>`<button data-acc="${k}" aria-pressed="${S.accent===k}" title="${n}" aria-label="${n}" style="background:var(--acc-${k})"></button>`).join('')}</div></div></div>
   <div class="panel"><div class="ph"><h2>カテゴリー</h2><small>本棚とタスクの分類</small></div>
     <div id="pjs">${st.subjects.map(p=>`<div class="pjrow" data-pj="${p.id}"><input type="text" value="${esc(p.name)}" data-pjname aria-label="カテゴリー名"><div class="colorpick">${PCOLORS.map(c=>`<button data-pjc="${c}" aria-pressed="${p.color===c}" style="background:${c}" aria-label="色"></button>`).join('')}</div><button class="ia del" data-pjdel aria-label="削除" style="opacity:1">${ICON.trash}</button></div>`).join('')}</div>
     <form class="qadd" id="pjAdd" style="margin-top:8px"><input id="pjIn" placeholder="新しいカテゴリー名"><button class="btn">追加</button></form></div>
@@ -5269,7 +5274,7 @@ let toastT;
 function toast(msg,act,fn){$('#toastMsg').textContent=msg;const b=$('#toastAct');b.hidden=!act;if(act){b.textContent=act;b.onclick=()=>{$('#toast').hidden=true;fn()}}
   $('#toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('#toast').hidden=true,act?6000:3500)}
 function confirmBox(msg,yes,fn){$('#modalMsg').textContent=msg;$('#modalYes').textContent=yes||'OK';$('#modal').hidden=false;$('#modalYes').onclick=()=>{$('#modal').hidden=true;fn()};$('#modalNo').onclick=()=>$('#modal').hidden=true}
-function applyTheme(){document.body.dataset.accent=S.accent||'tomato';const th=S.theme||'system';if(th==='system')delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=th;
+function applyTheme(){document.body.dataset.accent=S.accent||'tomato';if(window.pomoIcon)pomoIcon(S.accent||'tomato');const th=S.theme||'system';if(th==='system')delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=th;
   const b=$('#themeBtn');if(b)b.title=b.ariaLabel='表示: '+({system:'端末に合わせる',light:'ライト',dark:'ダーク'}[th])+'（押すと切り替え）'}
 $('#themeBtn').onclick=()=>{const order=['system','light','dark'];S.theme=order[(order.indexOf(S.theme||'system')+1)%3];applyTheme();save(true);toast('表示: '+({system:'端末に合わせる',light:'ライト',dark:'ダーク'}[S.theme]));if(view==='prefs')renderPrefs()};
 const fsEl=()=>document.fullscreenElement||document.webkitFullscreenElement;
