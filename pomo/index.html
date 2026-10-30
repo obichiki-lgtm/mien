@@ -4677,6 +4677,7 @@ $('#shClose').onclick=()=>$('#shdlg').hidden=true;$('#shdlg').onclick=e=>{if(e.t
 const LIBS={h2c:'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',pdf:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',xlsx:'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'};
 const libP={};
 function loadLib(k){return libP[k]||(libP[k]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=LIBS[k];s.onload=()=>res();s.onerror=()=>{delete libP[k];rej(new Error('load '+k))};document.head.appendChild(s)}))}
+if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(importSched,1200))}
 /* 学習スケジューラー → Pomo Timer. Source: Firestore users/{uid} when signed in, else this origin's localStorage.
    tasks{name,reviews[],doneDates[],startDate} -> st.reviews, unfinished todos{name,date} -> st.tasks, memo -> st.memos */
 async function loadSched(){let d=null;
