@@ -202,10 +202,11 @@ if(cloudOn()){const sy=$('#sync');sy.classList.add('tap');sy.setAttribute('role'
 # feedback: form -> Firestore feedback/{id} (create-only) -> GitHub Issues via .github/workflows/feedback.yml
 rep('<div class="modal" id="modal" hidden>','<div class="modal fbdlg" id="fbDlg" hidden><div class="box"><h3>ご意見・要望を送る</h3><p class="muted" style="font-size:13px">「こんな機能がほしい」「ここが使いにくい」など、なんでも送ってください。今後の改善の参考にします。お名前や連絡先などの個人情報は書かないでください。</p><div class="seg" id="fbKind"><button data-k="idea" aria-pressed="true">要望</button><button data-k="bug" aria-pressed="false">不具合</button><button data-k="other" aria-pressed="false">その他</button></div><textarea id="fbText" rows="6" maxlength="2000" placeholder="例：タスクを並べ替えられるようにしてほしい"></textarea><small class="muted" id="fbCount" style="text-align:right">0 / 2000</small><div class="acts"><button class="btn" id="fbNo">やめる</button><button class="btn primary" id="fbYes">送る</button></div></div></div><div class="modal" id="modal" hidden>')
 rep('.acctdlg .box{max-width:440px}','.fbdlg .box{max-width:480px}.fbdlg h3{font-family:var(--display);margin:0;font-size:18px}.fbdlg textarea{min-height:130px}\n.acctdlg .box{max-width:440px}')
-rep("""    <div class="pr"><span>すべて初期化</span>""","""    ${cloudOn()?'<div class="pr"><span>ご意見・要望を送る<small>ほしい機能や使いにくいところを教えてください</small></span><button class="btn" id="d_fb">送る</button></div>':''}<div class="pr"><span>すべて初期化</span>""")
-rep("""  if(t.id==='d_sched'){importSched();return}""","""  if(t.id==='d_sched'){importSched();return}
-  if(t.id==='d_fb'){fbOpen();return}""")
+# feedback card at the very bottom of the settings page (below all panels, full width)
+rep('<div class="pgrid" id="prefs"></div></section>','<div class="pgrid" id="prefs"></div><div class="panel fbfoot" id="fbFoot" hidden><div><b>ご意見・要望を送る</b><small>ほしい機能や使いにくいところを教えてください。今後の改善の参考にします</small></div><button class="btn accent" id="d_fb">送る</button></div></section>')
+rep('.acctdlg .box{max-width:440px}','.fbfoot{max-width:1180px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.fbfoot b{display:block;font-size:15px}.fbfoot small{display:block;color:var(--muted);font-size:12.5px}\n.acctdlg .box{max-width:440px}')
 rep("""/*@cloud*/""","""/*@cloud*/
+if(window.PomoCloud&&!(window.claude&&window.claude.use)){$('#fbFoot').hidden=false;$('#d_fb').onclick=()=>fbOpen()}
 function fbOpen(){const d=$('#fbDlg');d.hidden=false;const ta=$('#fbText');$('#fbCount').textContent=[...ta.value].length+' / 2000';setTimeout(()=>ta.focus(),50)}
 $('#fbKind').onclick=e=>{const b=e.target.closest('[data-k]');if(!b)return;$$('#fbKind button').forEach(x=>x.setAttribute('aria-pressed',x===b))};
 $('#fbText').oninput=e=>{$('#fbCount').textContent=[...e.target.value].length+' / 2000'};
