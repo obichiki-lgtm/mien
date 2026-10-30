@@ -50,7 +50,9 @@ PWA = '''<link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="Pomo Timer">
 <script>if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script>
 '''
-rep('<title>Pomo Timer</title>', '<title>Pomo Timer</title>\n' + PWA + FB)
+# PWA tags must be in <head> (Chrome ignores <link rel="manifest"> in <body>; the artifact puts <title> in <body>)
+rep('</style></head><body>', '</style>\n' + PWA + '</head><body>')
+rep('<title>Pomo Timer</title>', '<title>Pomo Timer</title>\n' + FB)
 
 # 2. Sync.init: claude.ai runtime when present, Firebase otherwise
 rep("""    if(!window.claude||!window.claude.use){this.set('','この端末に保存','同期は claude.ai で開いたときに使えます');return}""",
