@@ -62,7 +62,8 @@ rep("""  if(t.id==='d_export')exportData();if(t.id==='d_import')$('#importFile')
   if(t.id==='d_logout'){confirmBox('ログアウトしますか？この端末に保存されたデータも消去されます（クラウドのデータは残ります）。','ログアウト',async()=>{await PomoCloud.signOut();for(const k of Object.keys(localStorage))if(k.startsWith('pf2_'))localStorage.removeItem(k);location.reload()});return}""")
 
 rep("""async function saveFile(name,data){""",
-"""async function cloudLogin(){try{await PomoCloud.signIn();location.reload()}catch(e){if(e&&e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request')toast('ログインできませんでした（'+(e.code||e.message||'')+'）')}}
+"""if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(importSched,1200))}
+async function cloudLogin(){try{await PomoCloud.signIn();location.reload()}catch(e){if(e&&e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request')toast('ログインできませんでした（'+(e.code||e.message||'')+'）')}}
 async function saveFile(name,data){""")
 
 # top-bar sync indicator: logged out -> sign in, signed in -> open settings
