@@ -86,6 +86,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .sync{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
 .sync b{width:7px;height:7px;border-radius:50%;background:var(--muted)}
 .sync.on b{background:var(--tree)} .sync.err b{background:var(--pri1)}
+.sync.tap{cursor:pointer;padding:4px 10px;border-radius:999px}.sync.tap:hover{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}.sync.login b{background:var(--focus)}
 main{max-width:1180px;margin:0 auto;padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 @media (max-width:760px){
   .tabs{position:fixed;left:0;right:0;bottom:0;margin:0;justify-content:space-around;background:var(--surface);border-top:1px solid var(--line);z-index:15;
@@ -1373,7 +1374,7 @@ const Sync={col:null,ready:false,pend:{},busy:{},stateTimer:null,first:true,
     if(!window.claude||!window.claude.use){
       const pc=window.PomoCloud;if(!pc){this.set('','この端末に保存');return}
       const u=await pc.ready;
-      if(!u){this.set('','この端末に保存','設定 > データ から Google でログインすると端末間で同期されます');
+      if(!u){this.set('login','この端末に保存 · ログイン','クリックすると Google でログインし、端末間で同期します');
         if(!LS.get('loginHint',false)){LS.set('loginHint',true);setTimeout(()=>toast('Google でログインすると、ほかの端末と記録を同期できます','ログイン',cloudLogin),2500)}return}
       this.col=pc.col(u.uid);this.set('','同期中…');
       this.col.onSnapshot(snap=>this.onSnap(snap),err=>this.set('err','同期エラー','この端末には保存されています: '+(err&&err.code||'')));
@@ -5199,6 +5200,8 @@ if(T.running){Noise.update();lockWake()}
 document.addEventListener('pointerdown',()=>audio(),{once:true});
 if(T.overrunSince&&S.breakNag&&(!S.nagMax||Date.now()-T.overrunSince<S.nagMax*60000))Ring.start('break',S.alarmBreak,{crescendo:S.nagCrescendo,maxMin:S.nagMax});
 cleanSamples();try{migrateAutoRoutines()}catch(e){}overCapCheck(true);trimLate();renderRing();checkBadges();setTimeout(maybeWeekly,1200);setTimeout(maybeDandori,1800);document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(maybeDandori,800)});
+if(window.PomoCloud&&!(window.claude&&window.claude.use)){const sy=$('#sync');sy.classList.add('tap');sy.setAttribute('role','button');sy.tabIndex=0;
+  const act=()=>{if(!Sync.col)cloudLogin();else go('prefs')};sy.addEventListener('click',act);sy.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act()}})}
 Sync.init();
 })();
 </script>

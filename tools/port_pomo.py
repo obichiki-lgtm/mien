@@ -44,7 +44,7 @@ rep("""    if(!window.claude||!window.claude.use){this.set('','この端末に�
 """    if(!window.claude||!window.claude.use){
       const pc=window.PomoCloud;if(!pc){this.set('','この端末に保存');return}
       const u=await pc.ready;
-      if(!u){this.set('','この端末に保存','設定 > データ から Google でログインすると端末間で同期されます');
+      if(!u){this.set('login','この端末に保存 · ログイン','クリックすると Google でログインし、端末間で同期します');
         if(!LS.get('loginHint',false)){LS.set('loginHint',true);setTimeout(()=>toast('Google でログインすると、ほかの端末と記録を同期できます','ログイン',cloudLogin),2500)}return}
       this.col=pc.col(u.uid);this.set('','同期中…');
       this.col.onSnapshot(snap=>this.onSnap(snap),err=>this.set('err','同期エラー','この端末には保存されています: '+(err&&err.code||'')));
@@ -63,6 +63,13 @@ rep("""  if(t.id==='d_export')exportData();if(t.id==='d_import')$('#importFile')
 rep("""async function saveFile(name,data){""",
 """async function cloudLogin(){try{await PomoCloud.signIn();location.reload()}catch(e){if(e&&e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request')toast('ログインできませんでした（'+(e.code||e.message||'')+'）')}}
 async function saveFile(name,data){""")
+
+# top-bar sync indicator: logged out -> sign in, signed in -> open settings
+rep("""Sync.init();""","""if(window.PomoCloud&&!(window.claude&&window.claude.use)){const sy=$('#sync');sy.classList.add('tap');sy.setAttribute('role','button');sy.tabIndex=0;
+  const act=()=>{if(!Sync.col)cloudLogin();else go('prefs')};sy.addEventListener('click',act);sy.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act()}})}
+Sync.init();""")
+rep('.sync.on b{background:var(--tree)} .sync.err b{background:var(--pri1)}',
+    '.sync.on b{background:var(--tree)} .sync.err b{background:var(--pri1)}\n.sync.tap{cursor:pointer;padding:4px 10px;border-radius:999px}.sync.tap:hover{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}.sync.login b{background:var(--focus)}')
 
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
