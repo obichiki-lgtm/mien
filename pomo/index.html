@@ -104,6 +104,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .acct .stl{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);background:var(--sunk);border-radius:10px;padding:7px 10px}.acct .stl b{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}.acct .stl.on b{background:var(--tree)}.acct .stl.err b{background:var(--pri1)}
 .acct .ocopts button{padding:8px 12px}.acct a{font-size:12px;color:var(--muted);text-align:center}
 .fbdlg .box{max-width:480px}.fbdlg h3{font-family:var(--display);margin:0;font-size:18px}.fbdlg textarea{min-height:130px}
+.fbfoot{max-width:1180px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.fbfoot b{display:block;font-size:15px}.fbfoot small{display:block;color:var(--muted);font-size:12.5px}
 .acctdlg .box{max-width:440px}.acctdlg h3{font-family:var(--display);margin:0;font-size:18px}
 main{max-width:1180px;margin:0 auto;padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 @media (max-width:760px){
@@ -1189,7 +1190,7 @@ body.dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
   <!-- PREFS -->
   <section id="v-prefs" class="view" hidden>
     <div class="prefhead"><h2 class="h1">設定</h2><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="prefSearch" type="search" placeholder="設定を検索（例: アラーム、休憩）"></div></div>
-    <div class="pgrid" id="prefs"></div></section>
+    <div class="pgrid" id="prefs"></div><div class="panel fbfoot" id="fbFoot" hidden><div><b>ご意見・要望を送る</b><small>ほしい機能や使いにくいところを教えてください。今後の改善の参考にします</small></div><button class="btn accent" id="d_fb">送る</button></div></section>
 </main>
 
 <div class="overlay" id="detail" hidden><aside class="drawer" id="drawer" role="dialog" aria-label="詳細"></aside></div>
@@ -4698,6 +4699,7 @@ const libP={};
 function loadLib(k){return libP[k]||(libP[k]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=LIBS[k];s.onload=()=>res();s.onerror=()=>{delete libP[k];rej(new Error('load '+k))};document.head.appendChild(s)}))}
 if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(importSched,1200))}
 /*@cloud*/
+if(window.PomoCloud&&!(window.claude&&window.claude.use)){$('#fbFoot').hidden=false;$('#d_fb').onclick=()=>fbOpen()}
 function fbOpen(){const d=$('#fbDlg');d.hidden=false;const ta=$('#fbText');$('#fbCount').textContent=[...ta.value].length+' / 2000';setTimeout(()=>ta.focus(),50)}
 $('#fbKind').onclick=e=>{const b=e.target.closest('[data-k]');if(!b)return;$$('#fbKind button').forEach(x=>x.setAttribute('aria-pressed',x===b))};
 $('#fbText').oninput=e=>{$('#fbCount').textContent=[...e.target.value].length+' / 2000'};
@@ -5180,7 +5182,7 @@ function renderPrefs(){setTimeout(filterPrefs,0);const A={tomato:'トマト',oce
     <div class="pr"><span>学習の記録をCSVで書き出し<small>Excel や Googleスプレッドシートで開けます</small></span><button class="btn" id="d_csv">CSV</button></div>
     <div class="pr"><span>見本（例）のデータを削除<small>「（例）」と付いた教材・タスク・目標・復習をまとめて削除</small></span><button class="btn" id="d_examples">削除</button></div>
     <div class="pr"><span>学習の記録を消去<small>教材とタスクは残ります</small></span><button class="btn danger" id="d_resetLog">消去</button></div>
-    ${cloudOn()?'<div class="pr"><span>ご意見・要望を送る<small>ほしい機能や使いにくいところを教えてください</small></span><button class="btn" id="d_fb">送る</button></div>':''}<div class="pr"><span>すべて初期化</span><button class="btn danger" id="d_resetAll">初期化</button></div></div>`}
+    <div class="pr"><span>すべて初期化</span><button class="btn danger" id="d_resetAll">初期化</button></div></div>`}
 const numKeys=['focus','short','long','interval','goal'],boolKeys=['autoBreak','autoFocus','vibFocus','vibBreak','vibNag','vibClock','noiseInBreak','strict','wake','breakNag','nagCrescendo','askRecord'],
   selKeys=['theme','rvMaxIvl','preNotice','dayStart','alarmFocus','alarmBreak','tick','focusRingSec','nagMax','requireTask','penalty','penGrace','penEvery','dandori','overCap','notifyMode','vibPatFocus','vibPatBreak','vibPatNag','vibPatClock','vibRepFocus','vibRepBreak','vibRepNag','vibRepClock','vibNagEvery'],rngKeys=['alarmVol','tickVol','noiseVol'];
 let prefQ='';function filterPrefs(){const q=prefQ.toLowerCase();$$('#prefs > .panel').forEach(p=>{const head=(p.querySelector('.ph')||{}).textContent||'';let any=false;
@@ -5211,7 +5213,6 @@ $('#prefs').addEventListener('click',e=>{const t=e.target.closest('button');if(!
   if(t.id==='d_export')exportData();if(t.id==='d_import')$('#importFile').click();
   if(t.id==='d_login'){cloudLogin();return}
   if(t.id==='d_sched'){importSched();return}
-  if(t.id==='d_fb'){fbOpen();return}
   if(t.id==='d_logout'){cloudLogout();return}
   if(t.id==='d_resetLog')confirmBox('学習の記録をすべて消去しますか？元に戻せません。','消去',()=>{st.resetAt=Date.now();for(const k in months){months[k]=[];saveMonth(k)}st.books.forEach(b=>b.pos=b.mode==='range'?0:b.pos);save();toast('記録を消去しました')});
   if(t.id==='d_csv'){exportCSV();return}
