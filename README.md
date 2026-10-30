@@ -25,3 +25,11 @@ claude.ai の Artifact「Pomo Timer」を一般公開用に移植したもの。
 1. Authentication > Sign-in method で **Google** を有効化
 2. Authentication > Settings > 承認済みドメイン に `obichiki-lgtm.github.io` を追加
 3. Firestore > ルール に `firestore.rules` の内容を反映
+
+### ご意見・要望の受け付け（初回のみ設定）
+
+1. Firebase コンソール → プロジェクトの設定 → サービス アカウント →「新しい秘密鍵を生成」で JSON をダウンロード
+2. GitHub のこのリポジトリ → Settings → Secrets and variables → Actions →「New repository secret」
+   - Name: `FIREBASE_SA` / Secret: ダウンロードした JSON の中身をそのまま貼り付け
+3. Firestore > ルール に `firestore.rules` の内容を反映（`feedback` の部分が追加されています）
+4. GitHub の Actions タブ →「feedback-to-issues」→「Run workflow」で動作確認（以後は毎時自動）
