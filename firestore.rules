@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 学習スケジューラー（ルートの index.html）
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    // Pomo Timer（pomo/index.html）: 各ユーザーは自分の pomo/{uid}/docs/* だけ読み書きできる
+    match /pomo/{uid}/docs/{doc} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
