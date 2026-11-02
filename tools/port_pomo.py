@@ -310,5 +310,7 @@ function leaveCheck(){const L=S.leavePen??45;if(L==='off'||!S.strict||!T.leftAt|
   const away=Math.round((Date.now()-T.leftAt)/1000);if(away<+L||away<1)return false;failFocus(away);return true}
 setTimeout(leaveCheck,300); // the app was closed during a focus and opened again later""")
 
+# calendar: group a day's plans by type when it has 4 or more (feedback #9); users who already chose keep their choice
+rep("calGroup:'none',calGroupMin:4","calGroup:'type',calGroupMin:4")
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
