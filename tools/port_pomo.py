@@ -361,5 +361,62 @@ setTimeout(leaveCheck,300); // the app was closed during a focus and opened agai
 
 # calendar: group a day's plans by type when it has 4 or more (feedback #9); users who already chose keep their choice
 rep("calGroup:'none',calGroupMin:4","calGroup:'type',calGroupMin:4")
+# ---- feedback #20/#21/#22 ----
+# A1: a book saved with goal "なし" kept getting the only open goal suggested (and linked on the next save)
+rep("function autoGoal(b){if(bookGoal(b))return null;","function autoGoal(b){if(bookGoal(b)||b.noGoal)return null;")
+rep("const gid=$('#bp_goal').value;st.goals.forEach(x=>{x.books=(x.books||[]).filter(y=>y!==b.id)});","const gid=$('#bp_goal').value;b.noGoal=!gid;st.goals.forEach(x=>{x.books=(x.books||[]).filter(y=>y!==b.id)});")
+# A2: day counts ignored repeating plans (cell said 0件 while chips showed) and the day panel said
+#     「0件」「この日の予定はありません」 while routine / tentative plans were listed below
+rep("open=es.filter(e=>!e.done&&!e.proj).length","open=es.filter(e=>!e.done&&(!e.proj||e.repProj)).length")
+rep("<small>${real.length+reps.length}件の予定${proj.length?`・仮 ${proj.length}`:''}","<small>${real.length+reps.length+rts.length}件の予定${proj.length?`・仮 ${proj.length}`:''}")
+rep(":reps.length?'':'<div class=\"empty\" style=\"padding:10px 0\">この日の予定はありません</div>'}",":(reps.length||proj.length||rts.length||evs.length||goalsOn(k).length)?'':'<div class=\"empty\" style=\"padding:10px 0\">この日の予定はありません</div>'}")
+# A3: "1日 ○" meant different things on different screens; say what each number is
+rep("desc:desc+`・1日 約${Math.round(per*10)/10}${b.unit}`","desc:desc+`・学習する日1日あたり 約${Math.round(per*10)/10}${b.unit}`")
+rep("desc:desc+`・1日 約${Math.round(per*10)/10}単元`","desc:desc+`・学習する日1日あたり 約${Math.round(per*10)/10}単元`")
+rep("pi.pace?`最近 1日 ${uAmt(b,pi.pace)}`","pi.pace?`最近の実績 1日 ${uAmt(b,pi.pace)}`")
+rep("`（1日 ${pi.need===Infinity?'—':uAmt(b,pi.need)} 必要）`","`（残り÷期限までの学習日＝1日 ${pi.need===Infinity?'—':uAmt(b,pi.need)}）`")
+rep("<th>1日あたり必要</th>","<th>1日あたり必要<br><small>残り÷学習日</small></th>")
+# A4: the exam template fills the stages but not the target value; point at the empty field instead of failing on save
+rep("const fn=()=>{ms=ms.filter(m=>(m.t||'').trim()&&m.done).concat(tp);msDraw()};","const fn=()=>{ms=ms.filter(m=>(m.t||'').trim()&&m.done).concat(tp);msDraw();const tg=$('#g_tg');if(tg&&tg.offsetParent&&tg.value===''){tg.classList.add('needval');toast('ひな形を入れました。目標値（点数など）も入れてください');tg.focus()}};")
+rep("if(mm==='yes'&&$('#g_tg').value===''){toast('目標値を入力してください（数値で測らない場合は「いいえ」）');$('#g_tg').focus();return}","if(mm==='yes'&&$('#g_tg').value===''){toast('目標値を入力してください（数値で測らない場合は「いいえ」）');$('#g_tg').classList.add('needval');$('#g_tg').focus();return}")
+rep('.acctdlg .box{max-width:440px}','.needval{outline:2px solid var(--pri1);outline-offset:1px}.needval:not(:placeholder-shown){outline-color:transparent}\n.acctdlg .box{max-width:440px}')
+# ---- B: clarity (feedback #21/#22) ----
+# disabled "逆算" button says why (#21-6)
+rep("<button class=\"btn accent\" id=\"plGen\"${bs.some(b=>b.sched)?'':' disabled'}>","${bs.some(b=>b.sched)?'':'<small class=\"muted\" style=\"display:block;font-size:12px;margin:0 0 4px\">押すには、教材の計画で「期限」か「1日の量の上限」を入れてください</small>'}<button class=\"btn accent\" id=\"plGen\"${bs.some(b=>b.sched)?'':' disabled title=\"教材の計画で期限か1日の量の上限を入れると押せます\"'}>")
+# range vs total, with the unit (#22-10)
+rep("aria-pressed=\"${b.mode==='amount'}\">量（15ページ）</button></div></div>","aria-pressed=\"${b.mode==='amount'}\">量（15ページ）</button></div><small class=\"muted\">範囲＝「p.10〜24」のように始めと終わりで記録（どこまで進んだかを自動で計算）。量＝「15ページ」のように進んだ量だけ記録。</small></div>")
+rep('<label class="f">全体の量（任意）<input type="number" id="e_total"','<label class="f">全体の量（任意・${esc(b.unit||"ページ")}）<small class="muted">進み具合（％）と残りの計算に使います</small><input type="number" id="e_total"')
+# past-paper order explains itself (#22-11)
+rep('<option value="old">古い年度から</option></select></label>','<option value="old">古い年度から</option></select><small class="muted">新しい年度から＝今の出題傾向に近い順。古い年度から＝直前期に新しい年度を残せます</small></label>')
+# where to edit available time from the make tab (#22-7, #22-6)
+rep('<button class="chip" data-jump="pl-time">3 予定と時間</button>','<button class="chip" data-jump="pl-time">3 使える時間・予定</button>')
+rep('使える時間 → 作成、と順番に進められます。</small>','使える時間 → 作成、と順番に進められます。慣れたら、下の 1〜5 を直接編集できます（曜日・使える時間は「3」）。</small>')
+# "remove from plan" vs "delete the book" (#22-8)
+rep("${b.sched?'<button class=\"btn danger\" id=\"bp_off\" style=\"margin-left:auto\">計画から外す</button>':''}</div></div>","${b.sched?'<button class=\"btn danger\" id=\"bp_off\" style=\"margin-left:auto\">計画から外す</button>':''}</div><small class=\"muted\">「計画から外す」は計画で作ったタスクだけを消し、教材と学習の記録は残します。教材ごと消すときは <button type=\"button\" class=\"lglink\" data-bedit=\"${b.id}\">教材の編集</button> の「削除」から。</small></div>")
+# complete / move / delete side by side in task details (#21-7)
+rep('<button class="btn danger" id="d_del" style="margin-left:auto">削除</button>','<button class="btn" id="d_movejump" type="button">日付を変える</button><button class="btn danger" id="d_del" style="margin-left:auto">削除</button>')
+# repeat: when does it end (#21-2)
+rep("<input type=\"date\" id=\"d_until\" value=\"${t.until||''}\"></label>","<input type=\"date\" id=\"d_until\" value=\"${t.until||''}\"><span class=\"chips\" style=\"margin-top:4px\">${[['1週間',7],['1か月',30],['3か月',91]].map(([n,d])=>`<button type=\"button\" class=\"chip\" data-until=\"${d}\">${n}</button>`).join('')}<button type=\"button\" class=\"chip\" data-until=\"0\">終わりなし</button></span></label>")
+# planner drafts: say what confirm / undo do, and keep the bar in view (#21-4)
+rep('<div class="draftbar"><b>未確定の変更 ${n}件</b>','<div class="draftbar"><b>未確定の変更 ${n}件<small style="display:block;font-weight:400;font-size:11.5px;color:var(--muted)">「確定」でカレンダーと今日のリストに反映、「取り消す」で元に戻ります</small></b>')
+rep('.draftbar{','.draftbar{position:sticky;top:calc(64px + env(safe-area-inset-top,0px));z-index:6;')
+# calendar "+ タスク": estimate and repeat right there (#21-5)
+rep('<input class="titlein" id="na_title" placeholder="タスク（例: 書類を提出）" maxlength="140">','<input class="titlein" id="na_title" placeholder="タスク（例: 書類を提出）" maxlength="140">\n  <div class="frow"><label class="f">見積（ポモ）<input type="number" id="na_est" min="1" max="20" value="1" inputmode="numeric"></label><label class="f">繰り返し<select id="na_rep">${Object.entries(REP).map(([k,v])=>`<option value="${k}">${v}</option>`).join(\'\')}</select></label></div>\n  <label class="f" id="na_untilw" hidden>終了日（任意・空欄なら続きます）<input type="date" id="na_until"></label>')
+rep("const t=parseQuick(v,'');t.title=t.title||v;if(!t.due)t.due=day;st.tasks.push(t);","const t=parseQuick(v,'');t.title=t.title||v;if(!t.due)t.due=day;{const es=+$('#na_est').value,rp=$('#na_rep').value,un=$('#na_until').value;if(es>0&&!/\\*\\d/.test(v))t.est=es;if(rp!=='none'&&(!t.repeat||t.repeat==='none'))t.repeat=rp;if(t.repeat&&t.repeat!=='none'&&un)t.until=un}st.tasks.push(t);")
+rep("""/*@cloud*/""","""/*@cloud*/
+document.addEventListener('click',e=>{const t=e.target;
+  const be=t.closest('[data-bedit]');if(be){closeDrawer();setTimeout(()=>editBook(be.dataset.bedit),60);return}
+  if(t.id==='d_movejump'){const i=$('#d_due');if(i){i.scrollIntoView({block:'center',behavior:'smooth'});i.focus();try{i.showPicker&&i.showPicker()}catch(x){}}return}
+  const u=t.closest('[data-until]');if(u){e.preventDefault();const i=$('#d_until');if(!i)return;i.value=+u.dataset.until?addDays(todayKey(),+u.dataset.until):'';i.dispatchEvent(new Event('change',{bubbles:true}));toast(+u.dataset.until?`${shortDay(i.value)}までで止めます`:'終わりなしで繰り返します');return}});
+document.addEventListener('change',e=>{const t=e.target;
+  if(t.id==='na_rep'){const w=$('#na_untilw');if(w)w.hidden=t.value==='none'}
+  if(t.id==='d_rep2'&&t.value!=='none')setTimeout(()=>toast('「終了日」でいつまで繰り返すか決められます（空欄なら続きます）'),300)});
+// folded "細かい設定" shows what it currently holds (#22-9)
+function bpAdvSum(){const d=$('#bp_adv');if(!d)return;const s=d.querySelector('summary');let el=s.querySelector('.advsum');if(!el){el=document.createElement('small');el.className='advsum';s.appendChild(el)}
+  const tx=id=>{const x=$('#'+id);if(!x)return '';if(x.tagName==='SELECT')return (x.options[x.selectedIndex]||{}).text||'';return x.value};
+  const ps=[['優先度',tx('bp_pri')],['1日の上限',tx('bp_max')],['予備',tx('bp_ba')],['復習',tx('bp_cyc')]].filter(([,v])=>v&&v!=='0');
+  el.textContent=ps.length?'いまの設定：'+ps.map(([k,v])=>k+' '+v).join('・'):''}
+new MutationObserver(()=>{const d=$('#bp_adv');if(d&&!d.dataset.sum){d.dataset.sum='1';bpAdvSum();d.addEventListener('change',bpAdvSum);d.addEventListener('input',bpAdvSum)}}).observe(document.body,{childList:true,subtree:true});""")
+rep('.acctdlg .box{max-width:440px}','.advsum{display:block;margin:2px 0 0 13px;font-size:11.5px;color:var(--fg)}\n.acctdlg .box{max-width:440px}')
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
