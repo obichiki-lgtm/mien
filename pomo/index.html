@@ -128,6 +128,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .fbfoot{max-width:1180px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.fbfoot b{display:block;font-size:15px}.fbfoot small{display:block;color:var(--muted);font-size:12.5px}
 .needval{outline:2px solid var(--pri1);outline-offset:1px}.needval:not(:placeholder-shown){outline-color:transparent}
 .advsum{display:block;margin:2px 0 0 13px;font-size:11.5px;color:var(--fg)}
+.bpsec.gsug{display:flex;flex-direction:row;gap:10px;align-items:center;justify-content:space-between}.gsug span{font-size:13px;line-height:1.6}.gsug .btn{flex:none}
 .acctdlg .box{max-width:440px}.acctdlg h3{font-family:var(--display);margin:0;font-size:18px}
 .logindlg .box{max-width:400px}.logindlg h3{font-family:var(--display);margin:0;font-size:19px}.logindlg form{display:flex;flex-direction:column;gap:10px}.logindlg #lgSubmit{padding:10px}
 .gbtn{width:100%;padding:10px;gap:10px;font-weight:600}.lgor{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);margin:14px 0 4px}.lgor::before,.lgor::after{content:"";flex:1;border-top:1px solid var(--line)}
@@ -3835,7 +3836,7 @@ $('#plSheetView').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' 
 $('#plSheetView').addEventListener('change',e=>{const t=e.target;if(t.id==='shSubjSel'){if(t.value){shView='subj';shUnit=t.value[0]==='g'?'goal':'subj';LS.set('shunit',shUnit);shSubj=t.value.slice(2)}else shView='all';renderSheetView();return}if(t.id==='plWeeks2'){plPer.weeks=+t.value;LS.set('plper',plPer);renderSheetView();return}
   if(t.id==='poTodo'||t.id==='poCheck'){LS.set('plout',{todo:$('#poTodo').checked,check:$('#poCheck').checked});renderSheetView()}});
 function goalNode(x,depth){const kids=st.goals.filter(c=>c.parentId===x.id).sort(goalSort);const dl=x.due?daysLeft(x.due):null,nb=(x.books||[]).length;
-  return `<div class="gnode" style="--d:${depth}"><button class="grow" data-goal="${x.id}"><span class="glv ${effLevel(x)}">${LVL[effLevel(x)]}</span><span class="gt"><b>${esc(x.title)}</b>${x.due||nb?`<small>${[x.due?fmtDay(x.due,true):'',nb?`教材 ${nb}冊`:'',lvTag(x).replace(/[（）]/g,'')].filter(Boolean).join('・')}</small>`:''}${(()=>{const m=nextMs(x);return m?`<small class="gmet">次の段階: ${esc(m.t)}（${mdw(m.d)}）</small>`:''})()}${(()=>{const bs2=goalBuf(x);return bs2?`<small>${bufMeter(bs2)}</small>`:''})()}${gMetric(x)?`<small class="gmet">${esc(gMetricText(x))}</small><span class="bar gbar"><i style="width:${Math.min(100,gRate(x)*100).toFixed(0)}%"></i></span>`:''}</span>${dl!=null?`<span class="gdl${dl<0?' past':''}"><b>${dl<0?'済':dl===0?'当日':dl}</b>${dl>0?'<small>日後</small>':''}</span>`:''}</button><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${gMetric(x)?`<button class="btn sm" data-gres="${x.id}">結果を記録</button>`:`<button class="btn sm" data-gmet="${x.id}">＋ 数値目標</button>`}${x.level!=='short'?`<button class="btn sm" data-gadd="${x.level==='long'?'mid':'short'}" data-gpar="${x.id}">＋ ${x.level==='long'?'中期':'短期'}</button>`:''}</span></div>${kids.map(c=>goalNode(c,depth+1)).join('')}`}
+  return `<div class="gnode" style="--d:${depth}"><button class="grow" data-goal="${x.id}"><span class="glv ${effLevel(x)}">${LVL[effLevel(x)]}</span><span class="gt"><b>${esc(x.title)}</b>${x.due||nb?`<small>${[x.due?fmtDay(x.due,true):'',nb?`教材 ${nb}冊`:'',lvTag(x).replace(/[（）]/g,'')].filter(Boolean).join('・')}</small>`:''}${(()=>{const m=nextMs(x);return m?`<small class="gmet">次の段階: ${esc(m.t)}（${mdw(m.d)}）</small>`:''})()}${(()=>{const bs2=goalBuf(x);return bs2?`<small>${bufMeter(bs2)}</small>`:''})()}${gMetric(x)?`<small class="gmet">${esc(gMetricText(x))}</small><span class="bar gbar"><i style="width:${Math.min(100,gRate(x)*100).toFixed(0)}%"></i></span>`:''}</span>${dl!=null?`<span class="gdl${dl<0?' past':''}"><b>${dl<0?'済':dl===0?'当日':dl}</b>${dl>0?'<small>日後</small>':''}</span>`:''}</button><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${gMetric(x)?`<button class="btn sm" data-gres="${x.id}">結果を記録</button>`:`<button class="btn sm" data-gmet="${x.id}">＋ 数値目標</button>`}<button class="btn sm" data-gsug="${x.id}">提案</button>${x.level!=='short'?`<button class="btn sm" data-gadd="${x.level==='long'?'mid':'short'}" data-gpar="${x.id}">＋ ${x.level==='long'?'中期':'短期'}</button>`:''}</span></div>${kids.map(c=>goalNode(c,depth+1)).join('')}`}
 function goalSort(a,b){return LVO[a.level]-LVO[b.level]||(a.due||'9999').localeCompare(b.due||'9999')}
 function renderPlGoals(){const wm=weekMin(),g=S.weeklyGoalH*60,roots=st.goals.filter(x=>!x.parentId||!goalById(x.parentId)).sort(goalSort);
   $('#pl-goals').innerHTML=`<div class="ph"><h2><span class="stepn">2</span>目標の全体図</h2><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-gadd="long">＋ 長期目標</button><button class="btn sm" data-gadd="mid">＋ 中期・試験</button><button class="btn sm" data-gadd="short">＋ 短期目標</button></span></div>
@@ -4734,6 +4735,36 @@ const libP={};
 function loadLib(k){return libP[k]||(libP[k]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=LIBS[k];s.onload=()=>res();s.onerror=()=>{delete libP[k];rej(new Error('load '+k))};document.head.appendChild(s)}))}
 if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(()=>importSched(true),1200))}
 /*@cloud*/
+function goalSugBooks(g){const ids=new Set(g.books||[]);goalDesc(g).forEach(c=>(c.books||[]).forEach(x=>ids.add(x)));return [...ids].map(book).filter(b=>b&&b.status!=='done')}
+function openGoalSug(id){const g=goalById(id);if(!g)return;const today=todayKey(),lv=effLevel(g),bs=goalSugBooks(g),bids=new Set(bs.map(b=>b.id)),items=[];
+  const add=(why,btn,act)=>items.push({why,btn,act});
+  const planned=b=>b.sched||st.tasks.some(t=>t.source==='plan'&&t.planBook===b.id);
+  bs.filter(b=>!planned(b)).forEach(b=>add(`「${esc(b.title)}」はまだ計画がありません。期限と1日の量から、毎日の予定を作れます。`,'逆算の計画を作る',`bplan:${b.id}`));
+  if(!bs.length){const free=st.books.filter(b=>b.status==='active'&&!isSample(b)&&!st.goals.some(x=>!x.closed&&(x.books||[]).includes(b.id)));
+    free.slice(0,4).forEach(b=>add(`教材「${esc(b.title)}」はどの目標にも結ばれていません。この目標のための教材にしますか？`,'この目標に結ぶ',`link:${b.id}`));
+    add('この目標のための教材がまだありません。使う教材を登録すると、目標の日付から逆算した予定が作れます。','＋ 教材を追加','newbook')}
+  if(g.due&&g.due>=today&&lv==='mid'&&!bs.some(b=>b.past))add('試験が目標なら、過去問・模試を回の単位で入れておくと、本番までに配分できます。','＋ 過去問・模試','past');
+  if(lv==='mid'&&g.due&&g.due>addDays(today,3)&&!(g.ms||[]).some(m=>!m.done&&m.d>=today))add('本番までの中間の締め切り（段階）がありません。目標の編集画面の「試験のひな形を入れる」で、逆算した段階を作れます。','目標を編集','edit');
+  (g.ms||[]).filter(m=>!m.done&&m.d>=today).sort((a,b)=>a.d<b.d?-1:1).slice(0,2).forEach(m=>{if(!st.tasks.some(t=>t.gms===m.id))add(`段階「${esc(m.t)}」（${mdw(m.d)}まで）を、今日のリストに出るタスクにできます。`,'タスクにする',`ms:${m.id}`)});
+  const m=gMetric(g);if(m){const rs=(g.results||[]).slice().sort((a,b)=>a.d<b.d?-1:1),last=rs[rs.length-1];
+    if((!last||daysBetween(last.d,today)>30)&&!st.tasks.some(t=>t.gmeasure===g.id&&!t.completed))add(last?`最後に結果を記録してから${daysBetween(last.d,today)}日たちました。模試や小テストで今の実力を測ると、計画を見直せます。`:'まだ結果の記録がありません。模試や小テストで今の実力を測っておくと、達成率がわかります。','測るタスクを作る','measure')}
+  if(lv==='long'&&!st.goals.some(c=>c.parentId===g.id&&!c.closed))add('長期目標の下に、中期の目標（試験など）がありません。途中の目標を置くと、日々の予定につなげやすくなります。','＋ 中期目標','child:mid');
+  if(lv==='mid'&&!st.goals.some(c=>c.parentId===g.id&&!c.closed))add('この目標の下に、短期の目標がありません（例：今月中に1周目を終える）。','＋ 短期目標','child:short');
+  const wk=st.tasks.filter(t=>!t.completed&&t.due&&t.due>=today&&t.due<=addDays(today,6)&&(bids.has(t.book)||bids.has(t.planBook)||t.ggoal===g.id||(g.ms||[]).some(x=>x.id===t.gms))).length;
+  openDrawer(`<div class="dh"><h3>この目標のための提案</h3><button class="btn" id="pclose">閉じる</button></div>
+    <div class="bpsec"><b>${LVL[lv]}：${esc(g.title)}</b><small class="muted">${[g.due?fmtDay(g.due,true):'',bs.length?`教材 ${bs.length}冊`:'',`今後7日の予定 ${wk}件`].filter(Boolean).join('・')}</small></div>
+    <div class="muted" style="font-size:12.5px;margin:2px 0 10px">目標の内容から、次にやるとよいことを並べました。押したものだけが追加されます。</div>
+    ${items.length?items.map((x,i)=>`<div class="bpsec gsug"><span>${x.why}</span><button class="btn sm${i?'':' accent'}" data-gsa="${x.act}">${x.btn}</button></div>`).join(''):'<div class="bpsec">今のところ足りないものは見つかりませんでした。この調子で進めましょう。</div>'}`,()=>{
+    $('#drawer').onclick=e=>{const b=e.target.closest('[data-gsa]');if(!b)return;const [k,v]=b.dataset.gsa.split(':'),back=()=>setTimeout(()=>openGoalSug(id),60);
+      if(k==='bplan'){editBookPlan(v,back);return}
+      if(k==='link'){g.books=g.books||[];if(!g.books.includes(v))g.books.push(v);const bk=book(v);if(bk)delete bk.noGoal;save();toast('目標に結びました','元に戻す',()=>{g.books=g.books.filter(x=>x!==v);save()});openGoalSug(id);return}
+      if(k==='newbook'){const sid=(bs[0]||{}).subject;editBook(null,nb=>{g.books=g.books||[];if(!g.books.includes(nb))g.books.push(nb);save();setTimeout(()=>editBookPlan(nb,back),60)},sid?{subject:sid}:undefined);return}
+      if(k==='past'){const sid=(bs[0]||{}).subject||'_';openPastWizard(sid,back);setTimeout(()=>{const s=$('#pw_g');if(s)s.value=g.id},40);return}
+      if(k==='edit'){editGoal(id,null,back);return}
+      if(k==='child'){editGoal(null,{level:v,parentId:id},back);return}
+      if(k==='ms'){const ms=(g.ms||[]).find(x=>x.id===v);if(!ms)return;const b1=bs.length===1?bs[0]:null,t=newTask({title:ms.t,due:ms.d,gms:ms.id,ggoal:g.id,book:b1?b1.id:null,subject:b1?b1.subject:null,kind:b1?'study':'todo'});st.tasks.push(t);save();toast(`「${ms.t}」を${mdw(ms.d)}のタスクにしました`,'元に戻す',()=>{st.tasks=st.tasks.filter(x=>x!==t);save()});openGoalSug(id);return}
+      if(k==='measure'){const d=addDays(today,7),t=newTask({title:`今の実力を測る（${g.title}）`,due:d,ggoal:g.id,gmeasure:g.id,notes:'結果は目標の「結果を記録」から入れます'});st.tasks.push(t);save();toast(`${mdw(d)}のタスクにしました`,'元に戻す',()=>{st.tasks=st.tasks.filter(x=>x!==t);save()});openGoalSug(id);return}}},'gsug')}
+document.addEventListener('click',e=>{const x=e.target.closest('[data-gsug]');if(!x)return;e.stopPropagation();e.preventDefault();openGoalSug(x.dataset.gsug)},true);
 document.addEventListener('click',e=>{const t=e.target;
   const be=t.closest('[data-bedit]');if(be){closeDrawer();setTimeout(()=>editBook(be.dataset.bedit),60);return}
   if(t.id==='d_movejump'){const i=$('#d_due');if(i){i.scrollIntoView({block:'center',behavior:'smooth'});i.focus();try{i.showPicker&&i.showPicker()}catch(x){}}return}

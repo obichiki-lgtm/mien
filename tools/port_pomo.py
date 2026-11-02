@@ -418,5 +418,39 @@ function bpAdvSum(){const d=$('#bp_adv');if(!d)return;const s=d.querySelector('s
   el.textContent=ps.length?'いまの設定：'+ps.map(([k,v])=>k+' '+v).join('・'):''}
 new MutationObserver(()=>{const d=$('#bp_adv');if(d&&!d.dataset.sum){d.dataset.sum='1';bpAdvSum();d.addEventListener('change',bpAdvSum);d.addEventListener('input',bpAdvSum)}}).observe(document.body,{childList:true,subtree:true});""")
 rep('.acctdlg .box{max-width:440px}','.advsum{display:block;margin:2px 0 0 13px;font-size:11.5px;color:var(--fg)}\n.acctdlg .box{max-width:440px}')
+# goal -> suggestions for tasks / books (#21-8)
+rep("""${x.level!=='short'?`<button class="btn sm" data-gadd=""","""<button class="btn sm" data-gsug="${x.id}">提案</button>${x.level!=='short'?`<button class="btn sm" data-gadd=""")
+rep("""/*@cloud*/""","""/*@cloud*/
+function goalSugBooks(g){const ids=new Set(g.books||[]);goalDesc(g).forEach(c=>(c.books||[]).forEach(x=>ids.add(x)));return [...ids].map(book).filter(b=>b&&b.status!=='done')}
+function openGoalSug(id){const g=goalById(id);if(!g)return;const today=todayKey(),lv=effLevel(g),bs=goalSugBooks(g),bids=new Set(bs.map(b=>b.id)),items=[];
+  const add=(why,btn,act)=>items.push({why,btn,act});
+  const planned=b=>b.sched||st.tasks.some(t=>t.source==='plan'&&t.planBook===b.id);
+  bs.filter(b=>!planned(b)).forEach(b=>add(`「${esc(b.title)}」はまだ計画がありません。期限と1日の量から、毎日の予定を作れます。`,'逆算の計画を作る',`bplan:${b.id}`));
+  if(!bs.length){const free=st.books.filter(b=>b.status==='active'&&!isSample(b)&&!st.goals.some(x=>!x.closed&&(x.books||[]).includes(b.id)));
+    free.slice(0,4).forEach(b=>add(`教材「${esc(b.title)}」はどの目標にも結ばれていません。この目標のための教材にしますか？`,'この目標に結ぶ',`link:${b.id}`));
+    add('この目標のための教材がまだありません。使う教材を登録すると、目標の日付から逆算した予定が作れます。','＋ 教材を追加','newbook')}
+  if(g.due&&g.due>=today&&lv==='mid'&&!bs.some(b=>b.past))add('試験が目標なら、過去問・模試を回の単位で入れておくと、本番までに配分できます。','＋ 過去問・模試','past');
+  if(lv==='mid'&&g.due&&g.due>addDays(today,3)&&!(g.ms||[]).some(m=>!m.done&&m.d>=today))add('本番までの中間の締め切り（段階）がありません。目標の編集画面の「試験のひな形を入れる」で、逆算した段階を作れます。','目標を編集','edit');
+  (g.ms||[]).filter(m=>!m.done&&m.d>=today).sort((a,b)=>a.d<b.d?-1:1).slice(0,2).forEach(m=>{if(!st.tasks.some(t=>t.gms===m.id))add(`段階「${esc(m.t)}」（${mdw(m.d)}まで）を、今日のリストに出るタスクにできます。`,'タスクにする',`ms:${m.id}`)});
+  const m=gMetric(g);if(m){const rs=(g.results||[]).slice().sort((a,b)=>a.d<b.d?-1:1),last=rs[rs.length-1];
+    if((!last||daysBetween(last.d,today)>30)&&!st.tasks.some(t=>t.gmeasure===g.id&&!t.completed))add(last?`最後に結果を記録してから${daysBetween(last.d,today)}日たちました。模試や小テストで今の実力を測ると、計画を見直せます。`:'まだ結果の記録がありません。模試や小テストで今の実力を測っておくと、達成率がわかります。','測るタスクを作る','measure')}
+  if(lv==='long'&&!st.goals.some(c=>c.parentId===g.id&&!c.closed))add('長期目標の下に、中期の目標（試験など）がありません。途中の目標を置くと、日々の予定につなげやすくなります。','＋ 中期目標','child:mid');
+  if(lv==='mid'&&!st.goals.some(c=>c.parentId===g.id&&!c.closed))add('この目標の下に、短期の目標がありません（例：今月中に1周目を終える）。','＋ 短期目標','child:short');
+  const wk=st.tasks.filter(t=>!t.completed&&t.due&&t.due>=today&&t.due<=addDays(today,6)&&(bids.has(t.book)||bids.has(t.planBook)||t.ggoal===g.id||(g.ms||[]).some(x=>x.id===t.gms))).length;
+  openDrawer(`<div class="dh"><h3>この目標のための提案</h3><button class="btn" id="pclose">閉じる</button></div>
+    <div class="bpsec"><b>${LVL[lv]}：${esc(g.title)}</b><small class="muted">${[g.due?fmtDay(g.due,true):'',bs.length?`教材 ${bs.length}冊`:'',`今後7日の予定 ${wk}件`].filter(Boolean).join('・')}</small></div>
+    <div class="muted" style="font-size:12.5px;margin:2px 0 10px">目標の内容から、次にやるとよいことを並べました。押したものだけが追加されます。</div>
+    ${items.length?items.map((x,i)=>`<div class="bpsec gsug"><span>${x.why}</span><button class="btn sm${i?'':' accent'}" data-gsa="${x.act}">${x.btn}</button></div>`).join(''):'<div class="bpsec">今のところ足りないものは見つかりませんでした。この調子で進めましょう。</div>'}`,()=>{
+    $('#drawer').onclick=e=>{const b=e.target.closest('[data-gsa]');if(!b)return;const [k,v]=b.dataset.gsa.split(':'),back=()=>setTimeout(()=>openGoalSug(id),60);
+      if(k==='bplan'){editBookPlan(v,back);return}
+      if(k==='link'){g.books=g.books||[];if(!g.books.includes(v))g.books.push(v);const bk=book(v);if(bk)delete bk.noGoal;save();toast('目標に結びました','元に戻す',()=>{g.books=g.books.filter(x=>x!==v);save()});openGoalSug(id);return}
+      if(k==='newbook'){const sid=(bs[0]||{}).subject;editBook(null,nb=>{g.books=g.books||[];if(!g.books.includes(nb))g.books.push(nb);save();setTimeout(()=>editBookPlan(nb,back),60)},sid?{subject:sid}:undefined);return}
+      if(k==='past'){const sid=(bs[0]||{}).subject||'_';openPastWizard(sid,back);setTimeout(()=>{const s=$('#pw_g');if(s)s.value=g.id},40);return}
+      if(k==='edit'){editGoal(id,null,back);return}
+      if(k==='child'){editGoal(null,{level:v,parentId:id},back);return}
+      if(k==='ms'){const ms=(g.ms||[]).find(x=>x.id===v);if(!ms)return;const b1=bs.length===1?bs[0]:null,t=newTask({title:ms.t,due:ms.d,gms:ms.id,ggoal:g.id,book:b1?b1.id:null,subject:b1?b1.subject:null,kind:b1?'study':'todo'});st.tasks.push(t);save();toast(`「${ms.t}」を${mdw(ms.d)}のタスクにしました`,'元に戻す',()=>{st.tasks=st.tasks.filter(x=>x!==t);save()});openGoalSug(id);return}
+      if(k==='measure'){const d=addDays(today,7),t=newTask({title:`今の実力を測る（${g.title}）`,due:d,ggoal:g.id,gmeasure:g.id,notes:'結果は目標の「結果を記録」から入れます'});st.tasks.push(t);save();toast(`${mdw(d)}のタスクにしました`,'元に戻す',()=>{st.tasks=st.tasks.filter(x=>x!==t);save()});openGoalSug(id);return}}},'gsug')}
+document.addEventListener('click',e=>{const x=e.target.closest('[data-gsug]');if(!x)return;e.stopPropagation();e.preventDefault();openGoalSug(x.dataset.gsug)},true);""")
+rep('.acctdlg .box{max-width:440px}','.bpsec.gsug{display:flex;flex-direction:row;gap:10px;align-items:center;justify-content:space-between}.gsug span{font-size:13px;line-height:1.6}.gsug .btn{flex:none}\n.acctdlg .box{max-width:440px}')
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
