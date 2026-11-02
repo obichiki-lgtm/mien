@@ -25,7 +25,7 @@ window.PomoCloud=(()=>{
     appId:"1:441129563668:web:48cc07f882bff1785e5901"};
   if(!window.firebase)return null;
   try{firebase.initializeApp(config)}catch(e){return null}
-  const auth=firebase.auth(),fs=firebase.firestore();
+  const auth=firebase.auth(),fs=firebase.firestore();auth.languageCode='ja';
   const ready=new Promise(res=>{const off=auth.onAuthStateChanged(u=>{off();res(u)})});
   return {
     ready,
@@ -33,6 +33,13 @@ window.PomoCloud=(()=>{
     col(uid){return fs.collection('pomo/'+uid+'/docs')},
     async schedDoc(uid){const d=await fs.doc('users/'+uid).get();return d.exists?d.data():null},
     async signIn(){const p=new firebase.auth.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});return (await auth.signInWithPopup(p)).user},
+    async emailSignIn(e,pw){return (await auth.signInWithEmailAndPassword(e,pw)).user},
+    async emailSignUp(e,pw){const u=(await auth.createUserWithEmailAndPassword(e,pw)).user;try{await u.sendEmailVerification()}catch(x){}return u},
+    resetPw(e){return auth.sendPasswordResetEmail(e)},
+    sendVerify(){return auth.currentUser.sendEmailVerification()},
+    async linkGoogle(){const p=new firebase.auth.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});return (await auth.currentUser.linkWithPopup(p)).user},
+    async linkPassword(pw){const u=auth.currentUser;return (await u.linkWithCredential(firebase.auth.EmailAuthProvider.credential(u.email,pw))).user},
+    providers(){return ((auth.currentUser&&auth.currentUser.providerData)||[]).map(p=>p.providerId)},
     signOut(){return auth.signOut()},
     async hasCloud(uid){return (await fs.doc('pomo/'+uid+'/docs/state').get()).exists},
     sendFeedback(o){return fs.collection('feedback').add(Object.assign({},o,{at:firebase.firestore.FieldValue.serverTimestamp(),uid:auth.currentUser?auth.currentUser.uid:null,processed:false}))},
@@ -64,12 +71,12 @@ rep("""    if(!window.claude||!window.claude.use){this.set('','この端末に�
 """    if(!window.claude||!window.claude.use){
       const pc=window.PomoCloud;if(!pc){this.set('','この端末に保存');return}
       const u=await pc.ready;
-      if(!u){this.set('login','この端末に保存 · ログイン','押すと Google でログインし、端末間で同期します');return}
+      if(!u){this.set('login','この端末に保存 · ログイン','押すとログインし、端末間で同期します');return}
       this.attach(u);return}""")
 
 # 3. settings row: account status + login / logout
 rep("""<div class="pr"><span>同期<small>${Sync.col?'同じアカウントで開いた端末どうしで自動同期しています':'この端末のブラウザに保存中。claude.ai にサインインして開くと同期されます'}</small></span></div>""",
-"""<div class="pr"><span>同期<small>${Sync.col?(window.PomoCloud&&PomoCloud.user?esc(PomoCloud.user.email||'')+' でログイン中。同じアカウントの端末どうしで自動同期しています':'同じアカウントで開いた端末どうしで自動同期しています'):(window.PomoCloud?'この端末のブラウザに保存中。Google でログインすると端末間で同期されます':'この端末のブラウザに保存中。claude.ai にサインインして開くと同期されます')}</small></span>${window.PomoCloud?(PomoCloud.user?'<button class="btn" id="d_logout">ログアウト</button>':'<button class="btn accent" id="d_login">Google でログイン</button>'):''}</div>""")
+"""<div class="pr"><span>同期<small>${Sync.col?(window.PomoCloud&&PomoCloud.user?esc(PomoCloud.user.email||'')+' でログイン中。同じアカウントの端末どうしで自動同期しています':'同じアカウントで開いた端末どうしで自動同期しています'):(window.PomoCloud?'この端末のブラウザに保存中。ログインすると端末間で同期されます':'この端末のブラウザに保存中。claude.ai にサインインして開くと同期されます')}</small></span>${window.PomoCloud?(PomoCloud.user?'<button class="btn" id="d_logout">ログアウト</button>':'<button class="btn accent" id="d_login">ログイン</button>'):''}</div>""")
 
 # 4. handlers
 rep("""  if(t.id==='d_export')exportData();if(t.id==='d_import')$('#importFile').click();""",
@@ -151,8 +158,12 @@ rep('.sync.on b{background:var(--tree)} .sync.err b{background:var(--pri1)}', ""
 .acct .who div{min-width:0}.acct .who b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.acct .who small{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acct .stl{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);background:var(--sunk);border-radius:10px;padding:7px 10px}.acct .stl b{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}.acct .stl.on b{background:var(--tree)}.acct .stl.err b{background:var(--pri1)}
 .acct .ocopts button{padding:8px 12px}.acct a{font-size:12px;color:var(--muted);text-align:center}
-.acctdlg .box{max-width:440px}.acctdlg h3{font-family:var(--display);margin:0;font-size:18px}""")
-rep('<div class="modal" id="modal" hidden>', '<div class="acct" id="acct" hidden role="dialog" aria-label="アカウント"></div><div class="modal acctdlg" id="acctDlg" hidden><div class="box"><h3 id="adTitle"></h3><p id="adMsg"></p><div class="ocopts" id="adOpts"></div></div></div><div class="modal" id="modal" hidden>')
+.acctdlg .box{max-width:440px}.acctdlg h3{font-family:var(--display);margin:0;font-size:18px}
+.logindlg .box{max-width:400px}.logindlg h3{font-family:var(--display);margin:0;font-size:19px}.logindlg form{display:flex;flex-direction:column;gap:10px}.logindlg #lgSubmit{padding:10px}
+.gbtn{width:100%;padding:10px;gap:10px;font-weight:600}.lgor{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);margin:14px 0 4px}.lgor::before,.lgor::after{content:"";flex:1;border-top:1px solid var(--line)}
+.lgnote{font-size:12.5px;color:var(--muted);margin:0;background:var(--sunk);padding:8px 10px;border-radius:10px}.lgerr{margin:0;color:var(--pri1);font-size:13px}
+.lglinks{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.lglink{background:none;border:0;padding:0;font:inherit;font-size:12.5px;color:var(--muted);text-decoration:underline;cursor:pointer}""")
+rep('<div class="modal" id="modal" hidden>', '<div class="modal logindlg" id="loginDlg" hidden><div class="box" role="dialog" aria-labelledby="lgTitle"><h3 id="lgTitle">ログイン</h3><div id="lgGoogleWrap"><button type="button" class="btn gbtn" id="lgGoogle"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.7z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.3a12 12 0 0 0 0 10.8z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1c.9-2.9 3.6-4.9 6.7-4.9z"/></svg>Google でログイン</button><p class="lgnote" id="lgInapp" hidden>このアプリの中で開いたページでは Google ログインが使えません。下のメールアドレスでログインするか、<button type="button" class="lglink" id="lgCopy">アドレスをコピー</button>して Safari や Chrome で開いてください。</p><div class="lgor"><span>または メールアドレスで</span></div></div><form id="lgForm" novalidate><label class="f">メールアドレス<input type="email" id="lgEmail" autocomplete="email" inputmode="email"></label><label class="f">パスワード<input type="password" id="lgPw" autocomplete="current-password"></label><small class="muted" id="lgHint" hidden>6文字以上。ほかのサービスと同じパスワードは避けてください</small><p class="lgerr" id="lgErr" role="alert" hidden></p><button class="btn primary" id="lgSubmit">ログイン</button></form><div class="lglinks"><button type="button" class="lglink" id="lgMode">はじめての方は新規登録</button><button type="button" class="lglink" id="lgForgot">パスワードを忘れた</button></div><div class="acts"><button type="button" class="btn" id="lgClose">閉じる</button></div></div></div><div class="acct" id="acct" hidden role="dialog" aria-label="アカウント"></div><div class="modal acctdlg" id="acctDlg" hidden><div class="box"><h3 id="adTitle"></h3><p id="adMsg"></p><div class="ocopts" id="adOpts"></div></div></div><div class="modal" id="modal" hidden>')
 
 # Sync: attach / detach / flush pending writes before sign-out
 rep("""const Sync={col:null,ready:false,pend:{},busy:{},stateTimer:null,first:true,""","""const Sync={col:null,ready:false,pend:{},busy:{},stateTimer:null,first:true,unsub:null,
@@ -175,25 +186,57 @@ const AUTH_ERR={'auth/popup-blocked':'ポップアップがブロックされま
   'auth/internal-error':'ログインに失敗しました。もう一度お試しください',
   'auth/web-storage-unsupported':'このブラウザの設定ではログインできません。Cookie を許可するか、別のブラウザでお試しください',
   'auth/unauthorized-domain':'このアドレスでのログインがまだ許可されていません（管理者：Firebase の承認済みドメインに追加してください）',
-  'auth/operation-not-allowed':'Google ログインがまだ有効になっていません（管理者：Firebase で Google を有効にしてください）'};
+  'auth/operation-not-allowed':'このログイン方法はまだ有効になっていません（管理者：Firebase の Sign-in method で有効にしてください）',
+  'auth/invalid-email':'メールアドレスの形が正しくありません','auth/missing-email':'メールアドレスを入力してください',
+  'auth/weak-password':'パスワードは6文字以上にしてください','auth/missing-password':'パスワードを入力してください',
+  'auth/email-already-in-use':'このメールアドレスはすでに登録されています。「ログイン」からお試しください',
+  'auth/wrong-password':'メールアドレスかパスワードが違います','auth/user-not-found':'メールアドレスかパスワードが違います',
+  'auth/invalid-credential':'メールアドレスかパスワードが違います','auth/invalid-login-credentials':'メールアドレスかパスワードが違います',
+  'auth/user-disabled':'このアカウントは使えなくなっています',
+  'auth/account-exists-with-different-credential':'このメールアドレスは別の方法で登録されています。その方法でログインしてから、アカウントのメニューでログイン方法を追加してください',
+  'auth/credential-already-in-use':'このログイン方法は、別のアカウントですでに使われています',
+  'auth/provider-already-linked':'このログイン方法はすでに追加されています',
+  'auth/requires-recent-login':'安全のため、一度ログアウトしてログインし直してから、もう一度お試しください'};
 const authErr=e=>AUTH_ERR[e&&e.code]||'ログインできませんでした'+(e&&e.code?'（'+e.code+'）':'');
 const cloudOn=()=>!!window.PomoCloud&&!(window.claude&&window.claude.use);
 function choose(title,msg,opts){return new Promise(res=>{$('#adTitle').textContent=title;$('#adMsg').textContent=msg;
   $('#adOpts').innerHTML=opts.map(([k,l,sub,cls])=>`<button data-k="${k}" class="${cls||''}">${esc(l)}${sub?`<small>${esc(sub)}</small>`:''}</button>`).join('');
   const dl=$('#acctDlg');dl.hidden=false;$('#adOpts').onclick=e=>{const b=e.target.closest('[data-k]');if(!b)return;dl.hidden=true;res(b.dataset.k)}})}
 const localHasData=()=>Object.values(months).some(a=>(a||[]).some(x=>!x.del))||st.tasks.some(x=>!isSample(x))||st.books.some(x=>!isSample(x))||st.reviews.some(x=>!isSample(x));
-async function cloudLogin(){if(!cloudOn())return;acctClose();
-  if(INAPP){const k=await choose('ブラウザで開いてください','LINE や Instagram などのアプリの中で開いたページでは、Google の決まりでログインできません。\\n右上（または右下）のメニューから「ブラウザで開く」を選ぶか、アドレスをコピーして Safari や Chrome で開いてください。',[['copy','アドレスをコピー',location.origin+location.pathname],['close','閉じる']]);
-    if(k==='copy'){try{await navigator.clipboard.writeText(location.origin+location.pathname);toast('コピーしました。Safari や Chrome に貼り付けて開いてください')}catch(e){toast(location.origin+location.pathname)}}return}
-  let u;try{u=await PomoCloud.signIn()}catch(e){if(e&&(e.code==='auth/popup-closed-by-user'||e.code==='auth/cancelled-popup-request'||e.code==='auth/user-cancelled'))return;toast(authErr(e));return}
+let lgMode='in';
+function cloudLogin(){if(!cloudOn())return;acctClose();loginOpen('in')}
+function loginOpen(mode){lgMode=mode;const link=mode==='link',u=PomoCloud.user;
+  $('#lgTitle').textContent=link?'パスワードでのログインを追加':mode==='up'?'新規登録':'ログイン';
+  $('#lgGoogleWrap').hidden=link;$('#lgGoogle').hidden=INAPP;$('#lgInapp').hidden=!INAPP||link;
+  $('#lgEmail').readOnly=link;if(link)$('#lgEmail').value=(u&&u.email)||'';
+  $('#lgPw').autocomplete=mode==='in'?'current-password':'new-password';$('#lgHint').hidden=mode==='in';
+  $('#lgSubmit').textContent=link?'追加する':mode==='up'?'登録する':'ログイン';
+  $('#lgMode').hidden=link;$('#lgMode').textContent=mode==='up'?'登録済みの方はログイン':'はじめての方は新規登録';$('#lgForgot').hidden=mode!=='in';
+  $('#lgErr').hidden=true;$('#loginDlg').hidden=false;setTimeout(()=>(link?$('#lgPw'):$('#lgEmail')).focus(),50)}
+const lgFail=e=>{$('#lgErr').textContent=authErr(e);$('#lgErr').hidden=false};
+$('#lgClose').onclick=()=>$('#loginDlg').hidden=true;$('#loginDlg').onclick=e=>{if(e.target.id==='loginDlg')$('#loginDlg').hidden=true};
+$('#lgMode').onclick=()=>loginOpen(lgMode==='up'?'in':'up');
+$('#lgCopy').onclick=async()=>{try{await navigator.clipboard.writeText(location.origin+location.pathname);toast('コピーしました。Safari や Chrome に貼り付けて開いてください')}catch(e){toast(location.origin+location.pathname)}};
+$('#lgForgot').onclick=async()=>{const em=$('#lgEmail').value.trim();if(!em){lgFail({code:'auth/missing-email'});return}
+  try{await PomoCloud.resetPw(em);$('#lgErr').hidden=true;toast('パスワード再設定のメールを送りました（届かないときは迷惑メールも確認してください）')}catch(e){lgFail(e)}};
+$('#lgGoogle').onclick=async()=>{$('#loginDlg').hidden=true;lgMode='in';let u;try{u=await PomoCloud.signIn()}catch(e){if(e&&(e.code==='auth/popup-closed-by-user'||e.code==='auth/cancelled-popup-request'||e.code==='auth/user-cancelled'))return;toast(authErr(e));return}afterSignIn(u)};
+$('#lgForm').onsubmit=async e=>{e.preventDefault();const em=$('#lgEmail').value.trim(),pw=$('#lgPw').value,b=$('#lgSubmit');
+  if(!em&&lgMode!=='link'){lgFail({code:'auth/missing-email'});return}if(!pw){lgFail({code:'auth/missing-password'});return}
+  b.disabled=true;let u;
+  try{u=lgMode==='link'?await PomoCloud.linkPassword(pw):lgMode==='up'?await PomoCloud.emailSignUp(em,pw):await PomoCloud.emailSignIn(em,pw)}catch(x){lgFail(x);return}finally{b.disabled=false}
+  $('#lgPw').value='';$('#loginDlg').hidden=true;
+  if(lgMode==='link'){toast('パスワードでもログインできるようになりました');if(!$('#acct').hidden)acctRender();return}
+  if(lgMode==='up')toast('登録しました。確認メールを送ったので、メール内のリンクを開いてください');
+  afterSignIn(u)};
+async function afterSignIn(u){
   if(LS.get('cloudUid',null)!==u.uid&&localHasData()){let cloud=false;try{cloud=await PomoCloud.hasCloud(u.uid)}catch(e){}
     if(cloud){const k=await choose('この端末の記録をどうしますか？',`${u.email||'このアカウント'} には、ほかの端末で保存した記録があります。この端末にも記録があります。`,
       [['merge','両方の記録をまとめる','この端末の記録をアカウントに合わせて保存します'],['cloud','アカウントの記録だけを使う','この端末の記録は使わず、アカウントの記録に置き換えます'],['cancel','ログインをやめる','この端末だけで使い続けます']]);
       if(k==='cancel'){await PomoCloud.signOut();return}
       if(k==='cloud'){st.updatedAt=0;months={};dataVer++}}}
-  Sync.attach(u);toast(`${u.email||''} でログインしました`);renderView()}
+  Sync.attach(u);if(lgMode!=='up')toast(`${u.email||''} でログインしました`);renderView()}
 function loginNudge(s){if(!cloudOn()||Sync.col||LS.get('loginHint',false)||s.k==='b'||!s.ok||s.manual)return;LS.set('loginHint',true);
-  setTimeout(()=>toast('おつかれさまでした。この記録をスマホやPCでも見られるようにしませんか？','Google でログイン',cloudLogin),1800)}
+  setTimeout(()=>toast('おつかれさまでした。この記録をスマホやPCでも見られるようにしませんか？','ログイン',cloudLogin),1800)}
 async function signOutClear(after){Sync.detach();await PomoCloud.signOut();for(const k of Object.keys(localStorage))if(k.startsWith('pf2_'))localStorage.removeItem(k);if(after)try{sessionStorage.setItem('pomoAfter',after)}catch(e){}location.reload()}
 function cloudLogout(after){acctClose();confirmBox(`${after==='login'?'別のアカウントに切り替えます。':'ログアウトしますか？'}\\n・この端末に保存された Pomo Timer のデータは消去されます（アカウントには残ります）\\n・同じアドレスの学習スケジューラーからもログアウトされます`,after==='login'?'切り替える':'ログアウト',async()=>{
   toast('保存しています…');if(await Sync.flushAll()){signOutClear(after);return}
@@ -201,12 +244,15 @@ function cloudLogout(after){acctClose();confirmBox(`${after==='login'?'別のア
 function cloudDelete(){const u=PomoCloud.user;if(!u)return;acctClose();
   confirmBox(`${u.email||''} の Pomo Timer のデータをクラウドからすべて削除し、ログアウトします。\\n・この端末のデータは残ります（このまま端末だけで使えます）\\n・学習スケジューラーのデータは削除されません\\n元に戻せません。`,'削除する',async()=>{
     Sync.detach();try{await PomoCloud.deleteCloud(u.uid)}catch(e){toast('削除できませんでした（'+(e&&e.code||'')+'）');Sync.attach(u);return}
-    LS.set('cloudUid',null);await PomoCloud.signOut();Sync.set('login','この端末に保存 · ログイン','押すと Google でログインし、端末間で同期します');toast('クラウドのデータを削除しました')})}
+    LS.set('cloudUid',null);await PomoCloud.signOut();Sync.set('login','この端末に保存 · ログイン','押すとログインし、端末間で同期します');toast('クラウドのデータを削除しました')})}
 function acctRender(){const u=PomoCloud.user,el=$('#acct');if(!u){acctClose();return}const sy=$('#sync');
-  const st0=sy.classList.contains('on')?'on':sy.classList.contains('err')?'err':'',nm=u.displayName||u.email||'';
+  const st0=sy.classList.contains('on')?'on':sy.classList.contains('err')?'err':'',nm=u.displayName||u.email||'',pv=PomoCloud.providers(),hasG=pv.includes('google.com'),hasP=pv.includes('password');
   el.innerHTML=`<div class="who"><span class="av">${u.photoURL?`<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">`:esc([...nm][0]||'?')}</span><div><b>${esc(nm)}</b><small>${esc(u.email||'')}</small></div></div>
   <div class="stl ${st0}"><b></b><span>${esc($('#syncText').textContent)}${st0==='on'?' · このアカウントの端末どうしで自動同期':''}</span></div>
-  <div class="ocopts"><button data-a="sched">学習スケジューラーから引き継ぐ<small>復習の予定・ToDo・メモを取り込む</small></button>
+  <div class="stl"><span>ログイン方法：${[hasG&&'Google',hasP&&'メールアドレス＋パスワード'].filter(Boolean).join('・')||'—'}</span></div>
+  ${hasP&&!u.emailVerified?`<div class="stl err"><b></b><span>メールアドレスの確認がまだです。届いたメールのリンクを開いてください</span></div>`:''}
+  <div class="ocopts">${hasP&&!u.emailVerified?'<button data-a="verify">確認メールをもう一度送る</button>':''}${!hasG?'<button data-a="addG">Google でのログインを追加<small>同じ記録に Google でも入れるようにする</small></button>':''}${!hasP&&u.email?'<button data-a="addP">パスワードでのログインを追加<small>Google が使えない端末でも入れるようにする</small></button>':''}
+  <button data-a="sched">学習スケジューラーから引き継ぐ<small>復習の予定・ToDo・メモを取り込む</small></button>
   <button data-a="switch">別のアカウントに切り替え</button><button data-a="logout">ログアウト</button>
   <button data-a="fb">ご意見・要望を送る<small>ほしい機能や使いにくいところを教えてください</small></button>
   <button data-a="delete" class="danger">クラウドのデータを削除</button></div><a href="privacy.html" target="_blank" rel="noopener">データの扱いについて</a>`}
@@ -216,10 +262,13 @@ if(cloudOn()){const sy=$('#sync');sy.classList.add('tap');sy.setAttribute('role'
   const act=()=>{if(!PomoCloud.user||!Sync.col){cloudLogin();return}$('#acct').hidden?acctOpen():acctClose()};
   sy.addEventListener('click',e=>{e.stopPropagation();act()});sy.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act()}});
   $('#acct').addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;
+    if(a==='verify'){PomoCloud.sendVerify().then(()=>toast('確認メールを送りました'),x=>toast(authErr(x)));return}
+    if(a==='addP'){acctClose();loginOpen('link');return}
+    if(a==='addG'){acctClose();PomoCloud.linkGoogle().then(()=>toast('Google でもログインできるようになりました'),x=>{if(x&&/popup-closed|cancelled-popup|user-cancelled/.test(x.code||''))return;toast(authErr(x))});return}
     if(a==='sched'){acctClose();importSched()}else if(a==='fb'){acctClose();fbOpen()}else if(a==='switch')cloudLogout('login');else if(a==='logout')cloudLogout();else if(a==='delete')cloudDelete()});
   document.addEventListener('click',()=>{if(!$('#acct').hidden)acctClose()});document.addEventListener('keydown',e=>{if(e.key==='Escape')acctClose()});
   let after=null;try{after=sessionStorage.getItem('pomoAfter');sessionStorage.removeItem('pomoAfter')}catch(e){}
-  if(after==='login')setTimeout(()=>toast('切り替えるアカウントでログインしてください','Google でログイン',cloudLogin),800)}""")
+  if(after==='login')setTimeout(()=>toast('切り替えるアカウントでログインしてください','ログイン',cloudLogin),800)}""")
 
 # feedback: form -> Firestore feedback/{id} (create-only) -> GitHub Issues via .github/workflows/feedback.yml
 rep('<div class="modal" id="modal" hidden>','<div class="modal fbdlg" id="fbDlg" hidden><div class="box"><h3>ご意見・要望を送る</h3><p class="muted" style="font-size:13px">「こんな機能がほしい」「ここが使いにくい」など、なんでも送ってください。今後の改善の参考にします。お名前や連絡先などの個人情報は書かないでください。</p><div class="seg" id="fbKind"><button data-k="idea" aria-pressed="true">要望</button><button data-k="bug" aria-pressed="false">不具合</button><button data-k="other" aria-pressed="false">その他</button></div><textarea id="fbText" rows="6" maxlength="2000" placeholder="例：タスクを並べ替えられるようにしてほしい"></textarea><small class="muted" id="fbCount" style="text-align:right">0 / 2000</small><div class="acts"><button class="btn" id="fbNo">やめる</button><button class="btn primary" id="fbYes">送る</button></div></div></div><div class="modal" id="modal" hidden>')
