@@ -498,5 +498,16 @@ rep("<option value=\"${x.id}\"${sc.after===x.id?' selected':''}>「${esc(x.title
 # #25-12: why no new range lands on the last study day of the week; why auto == even
 rep("'この教材では、3つとも同じ配り方になります'","(capOn0()?'この教材では、3つとも同じ配り方になります':'今は3つとも同じ配り方です。使える時間（計画の「3 使える時間・予定」）を曜日ごとに入れると、「自動」は時間の多い曜日に多く配ります')")
 rep("$('#bp_prev').innerHTML=r.err?r.err:`${gs0===todayKey()?'今日':md(gs0)+'（18時以降は翌日）'}から作ると: ${genText(tmp,r)}","$('#bp_prev').innerHTML=r.err?r.err:`${gs0===todayKey()?'今日':md(gs0)+'（18時以降は翌日）'}から作ると: ${genText(tmp,r)}${!stageMode(tmp)&&bufOf(tmp).week>0?`<br><small class=\"muted\">毎週の予備日（週バッファー ${bufOf(tmp).week}%）として、週の最後の勉強日（月曜始まりなので、ふつうは日曜）には新しい範囲を入れません。遅れの取り戻しに使う日です。毎日入れたいときは、細かい設定の週バッファーを 0 にします。</small>`:''}")
+# C-1: "＋ 予定" is a special-day mark, not a task -> name it so
+rep('<button class="btn sm" data-addk="ev">＋ 予定</button>','<button class="btn sm" data-addk="ev">＋ 特別な日</button>')
+rep('<button class="btn sm" id="shAddEv">＋ 予定</button>','<button class="btn sm" id="shAddEv">＋ 特別な日</button>')
+rep('<button class="btn sm" id="gd_ev">＋ 予定（修学旅行・模試など）</button>','<button class="btn sm" id="gd_ev">＋ 特別な日（修学旅行・模試・休みなど）</button>')
+rep('<h2 style="font-size:15px">日ごとの予定</h2><button class="btn sm" id="evAdd">＋ 予定</button>','<h2 style="font-size:15px">特別な日（行事・休み）</h2><button class="btn sm" id="evAdd">＋ 特別な日</button>')
+rep("<h3>${isNew?'予定を追加':'予定を編集'}</h3>","<h3>${isNew?'特別な日を追加':'特別な日を編集'}</h3>")
+rep('<input class="titlein" id="ev_title" value="${esc(ev.title)}" placeholder="例: 修学旅行、全統模試" maxlength="40">','<div class="muted" style="font-size:12.5px;margin:-4px 0 2px">修学旅行・模試・休みの日などの印です（タスクではありません）。その日の勉強の量を決めます。やることを足すときは「＋ タスク」「＋ 学習」から。</div>\n    <input class="titlein" id="ev_title" value="${esc(ev.title)}" placeholder="例: 修学旅行、全統模試" maxlength="40">')
+# C-2: book detail shows its reviews and links to them
+rep('<button class="btn" id="b_edit">${ICON.pen}編集</button></div>','<button class="btn" id="b_edit">${ICON.pen}編集</button></div>${(()=>{const rs=(st.reviews||[]).filter(r=>(r.book===b.id||r.fromBook===b.id)&&!r.done&&!r.paused);if(!rs.length&&!b.sched)return \'\';const nx=rs.map(r=>r.due).filter(Boolean).sort()[0],cy=(b.sched||{}).cycle;return `<div class="bpsec gsug"><span><b>復習</b>　${rs.length?`この教材の復習 ${rs.length}件${nx?`・次は ${mdw(nx)}`:\'\'}`:\'この教材の復習はまだありません\'}<small class="muted" style="display:block">${b.sched?(cy===\'no\'?\'計画のタスクを終えても復習には入れない設定です（教材の計画の「復習サイクル」で変えられます）\':`計画のタスクを終えると、その範囲を忘却曲線にそって復習に${cy===\'yes\'?\'入れます\':\'入れるか確認します\'}（教材の計画の「復習サイクル」で変えられます）`):\'\'}</small></span>${rs.length?`<button class="btn sm" data-bkrv="1">復習の一覧へ</button>`:\'\'}</div>`})()}')
+rep("""/*@cloud*/""","""/*@cloud*/
+document.addEventListener('click',e=>{if(!e.target.closest('[data-bkrv]'))return;closeDrawer();const tb=document.querySelector('#tabs [data-v="timer"]');if(tb)tb.click();setTimeout(()=>{tKind='review';LS.set('tkind',tKind);curList='upcoming';renderTasks();const tp=$('#taskPanel');if(tp)tp.scrollIntoView({behavior:'smooth',block:'start'})},80)});""")
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
