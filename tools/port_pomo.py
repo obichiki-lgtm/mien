@@ -452,5 +452,51 @@ function openGoalSug(id){const g=goalById(id);if(!g)return;const today=todayKey(
       if(k==='measure'){const d=addDays(today,7),t=newTask({title:`今の実力を測る（${g.title}）`,due:d,ggoal:g.id,gmeasure:g.id,notes:'結果は目標の「結果を記録」から入れます'});st.tasks.push(t);save();toast(`${mdw(d)}のタスクにしました`,'元に戻す',()=>{st.tasks=st.tasks.filter(x=>x!==t);save()});openGoalSug(id);return}}},'gsug')}
 document.addEventListener('click',e=>{const x=e.target.closest('[data-gsug]');if(!x)return;e.stopPropagation();e.preventDefault();openGoalSug(x.dataset.gsug)},true);""")
 rep('.acctdlg .box{max-width:440px}','.bpsec.gsug{display:flex;flex-direction:row;gap:10px;align-items:center;justify-content:space-between}.gsug span{font-size:13px;line-height:1.6}.gsug .btn{flex:none}\n.acctdlg .box{max-width:440px}')
+# #25-2: Firestore rejects undefined values -> strip them; retry a few times on other errors
+rep("this.write('m-'+mk,()=>({sessions:months[mk]||[]}))","this.write('m-'+mk,()=>({sessions:JSON.parse(JSON.stringify(months[mk]||[]))}))")
+rep("try{await this.col.doc(id).set(fn())}catch(e){","this.retry=this.retry||{};try{await this.col.doc(id).set(fn());if(this.retry[id]){this.retry[id]=0;this.set('on','同期済み','同じアカウントで開いた端末どうしで同期されます')}}catch(e){")
+rep("this.set('err','同期エラー',(e&&e.message)||'')}\n    this.busy[id]=false;","const n=this.retry[id]=(this.retry[id]||0)+1;if(n<=3){this.pend[id]=this.pend[id]||fn;this.set('err','同期エラー（再試行中）','この端末には保存されています。少し待って自動でもう一度送ります');setTimeout(()=>{this.busy[id]=false;this.flush(id)},4000*n);return}\n      this.retry[id]=0;this.set('err','同期エラー','この端末には保存されています。次に保存したときにもう一度送ります: '+((e&&e.message)||''))}\n    this.busy[id]=false;")
+# #25-3: break-overrun bar: can be made small, can end the set, and moves out of the way of open dialogs
+rep('<button class="ghost" id="ringCont" hidden>休憩せずに続けていた</button>','<button class="ghost" id="ringCont" hidden>休憩せずに続けていた</button><button class="ghost" id="ringEnd" hidden>セットを終える</button><button class="ghost" id="ringMin" hidden>小さくする</button>')
+rep("function renderRing(){const bar=$('#ringbar');$('#ringCont').hidden=true;","function renderRing(){const bar=$('#ringbar');$('#ringCont').hidden=true;$('#ringEnd').hidden=$('#ringMin').hidden=true;if(!T.overrunSince)window.ringMini=false;bar.classList.toggle('mini',!!(T.overrunSince&&Ring.kind!=='clock'&&window.ringMini));")
+rep("$('#ringCont').hidden=!liveBrkInfo()}","$('#ringCont').hidden=!liveBrkInfo();$('#ringEnd').hidden=$('#ringMin').hidden=false}")
+rep("""/*@cloud*/""","""/*@cloud*/
+document.addEventListener('click',e=>{const t=e.target,bar=$('#ringbar');if(!bar||!bar.contains(t))return;
+  if(t.id==='ringMin'){e.stopPropagation();window.ringMini=true;renderRing();toast('右下の表示を押すと元に戻ります');return}
+  if(t.id==='ringEnd'){e.stopPropagation();window.ringMini=false;endSet();return}
+  if(bar.classList.contains('mini')){e.stopPropagation();window.ringMini=false;renderRing()}},true);""")
+rep('.acctdlg .box{max-width:440px}','''.ringbar.mini{left:auto;right:12px;top:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px));border-radius:999px;padding:8px 14px;gap:6px;animation:none;cursor:pointer;max-width:calc(100% - 24px)}
+.ringbar.mini b{font-size:13px}.ringbar.mini span:has(>button){display:none!important}
+body:has(.modal:not([hidden])) .ringbar:not(.mini),body:has(#detail:not([hidden])) .ringbar:not(.mini){top:auto;bottom:0;padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));animation:none}
+.acctdlg .box{max-width:440px}''')
+# #25-1: bulk generation: a book set to start after another book in the same batch starts the day after that book's new plan ends
+rep("${bs.map(b=>{const r=genBook(b,start);res[b.id]=r;const old=st.tasks","${orderByAfter(bs).map(b=>{const r=genChain(b,start,res);res[b.id]=r;const old=st.tasks")
+rep("function afterChain(b){","function genChain(b,start,res){const a=b.sched&&b.sched.after,ra=a&&res[a];if(!ra||ra.err)return genBook(b,start);const keep=st.tasks;st.tasks=keep.filter(t=>!(t.source==='plan'&&t.planBook===a&&!t.completed)).concat(ra.tasks||[]);try{return genBook(b,start)}finally{st.tasks=keep}}\nfunction afterChain(b){")
+# #25-4/5: the single-book preview used "today" while everything else starts from genStartDefault() (tomorrow after 18:00)
+rep("const r=genBook(tmp,todayKey());$('#bp_prev').innerHTML=r.err?r.err:`今日から作ると: ${genText(tmp,r)}","const gs0=genStartDefault(),r=genBook(tmp,gs0),aw=tmp.sched&&tmp.sched.after&&book(tmp.sched.after),awn=aw&&!stageMode(tmp)&&!st.tasks.some(t=>t.source==='plan'&&t.planBook===aw.id&&!t.completed&&t.planKind!=='rv');$('#bp_prev').innerHTML=r.err?r.err:`${gs0===todayKey()?'今日':md(gs0)+'（18時以降は翌日）'}から作ると: ${genText(tmp,r)}${awn?`<br><small class=\"muted\">「${esc(aw.title)}」の予定がまだないので、すぐ始める計算です。「逆算して予定を作る」でまとめて作ると、「${esc(aw.title)}」が終わった翌日から始まります。</small>`:''}")
+# #25-6: guide "使える時間" saves as soon as it changes (also when cleared)
+rep("""/*@cloud*/""","""/*@cloud*/
+document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.gdm!=null){st.plan.dayMin[+t.dataset.gdm]=Math.round(Math.max(0,Math.min(16,+t.value||0))*60);save(true)}});""")
+# #25-12: 0.25 h steps are valid
+rep('step="0.5" data-dmin="${d}" value="${dm[d]?Math.round(dm[d]/30)/2:\'\'}"','step="0.25" data-dmin="${d}" value="${dm[d]?Math.round(dm[d]/15)/4:\'\'}"')
+rep('step="0.5" data-gdm="${d}" value="${dm[d]?Math.round(dm[d]/30)/2:\'\'}"','step="0.25" data-gdm="${d}" value="${dm[d]?Math.round(dm[d]/15)/4:\'\'}"')
+# #25-7: routines were counted twice in the 2-week check; planner count uses the same rule and says which period it covers
+rep("+routinesOn(d).reduce((a,r)=>a+(+r.min||0),0)>c+1",">c+1",count=2)
+rep("load[d]=loadOf(d,items[d]||[])+routinesOn(d).reduce((a,r)=>a+(+r.min||0),0)","load[d]=loadOf(d,items[d]||[])")
+rep("if(c!=null&&loadOf(d,items[d]||[])>c+1)ov++}","if(c!=null&&c>0&&loadOf(d,items[d]||[])>c+1)ov++}")
+rep("<b>使える時間を超える日が ${ov}日</b> あります","<b>使える時間を超える日が ${ov}日</b> あります（表示中の ${mdw(from<today?today:from)}〜${mdw(to)}・定番を含む）")
+rep("使える時間を超える日 ${n}日（2週間以内）","使える時間を超える日 ${n}日（今日から2週間・定番を含む）")
+# #25-9: routines without a time estimate are not in the day total -> say so
+rep("${ld&&d>=today&&dayEst(es)?' 見積もり中':''}","${ld&&d>=today&&dayEst(es)?' 見積もり中':''}${es.some(e=>e.kind==='rt'&&!e.done&&!(+e.min))?'（時間の目安がない定番は含みません）':''}")
+# #25-8: say what "plan tasks" counts
+rep("${nPlan?`いま計画のタスクが ${nPlan}件 あります。","${nPlan?`いま逆算で作った計画のタスクが ${nPlan}件 あります（手動で足したタスクや定番は数えていません）。")
+# #25-11: wording matches the button
+rep("「確定」を押すとタスクとして登録されます。","「下書きに追加」で週間プランナーの下書きに入り、上の「確定」を押すとタスクとして登録されます。")
+# #25-10: same-name books: warn once, and tell them apart in the "start after" list
+rep("$('#e_save').onclick=()=>{const n=$('#e_title').value.trim();if(!n){toast('教材名を入力してください');$('#e_title').focus();return}","$('#e_save').onclick=()=>{const n=$('#e_title').value.trim();if(!n){toast('教材名を入力してください');$('#e_title').focus();return}if(st.books.some(x=>x!==b&&(x.title||'').trim()===n)&&$('#e_title').dataset.dupok!==n){$('#e_title').dataset.dupok=n;toast('同じ名前の教材がすでにあります。区別できる名前（例：「〜 2冊目」）にするか、このままでよければもう一度「保存」を押してください');$('#e_title').focus();return}")
+rep("<option value=\"${x.id}\"${sc.after===x.id?' selected':''}>「${esc(x.title)}」が終わってから始める</option>","<option value=\"${x.id}\"${sc.after===x.id?' selected':''}>「${esc(x.title)}」${ch.some(y=>y!==x&&y.title===x.title)?`（${esc(((subj(x.subject)||{}).name)||'科目なし')}・${(x.id||'').slice(-4)}）`:''}が終わってから始める</option>")
+# #25-12: why no new range lands on the last study day of the week; why auto == even
+rep("'この教材では、3つとも同じ配り方になります'","(capOn0()?'この教材では、3つとも同じ配り方になります':'今は3つとも同じ配り方です。使える時間（計画の「3 使える時間・予定」）を曜日ごとに入れると、「自動」は時間の多い曜日に多く配ります')")
+rep("$('#bp_prev').innerHTML=r.err?r.err:`${gs0===todayKey()?'今日':md(gs0)+'（18時以降は翌日）'}から作ると: ${genText(tmp,r)}","$('#bp_prev').innerHTML=r.err?r.err:`${gs0===todayKey()?'今日':md(gs0)+'（18時以降は翌日）'}から作ると: ${genText(tmp,r)}${!stageMode(tmp)&&bufOf(tmp).week>0?`<br><small class=\"muted\">毎週の予備日（週バッファー ${bufOf(tmp).week}%）として、週の最後の勉強日（月曜始まりなので、ふつうは日曜）には新しい範囲を入れません。遅れの取り戻しに使う日です。毎日入れたいときは、細かい設定の週バッファーを 0 にします。</small>`:''}")
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
