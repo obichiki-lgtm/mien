@@ -509,5 +509,85 @@ rep('<input class="titlein" id="ev_title" value="${esc(ev.title)}" placeholder="
 rep('<button class="btn" id="b_edit">${ICON.pen}編集</button></div>','<button class="btn" id="b_edit">${ICON.pen}編集</button></div>${(()=>{const rs=(st.reviews||[]).filter(r=>(r.book===b.id||r.fromBook===b.id)&&!r.done&&!r.paused);if(!rs.length&&!b.sched)return \'\';const nx=rs.map(r=>r.due).filter(Boolean).sort()[0],cy=(b.sched||{}).cycle;return `<div class="bpsec gsug"><span><b>復習</b>　${rs.length?`この教材の復習 ${rs.length}件${nx?`・次は ${mdw(nx)}`:\'\'}`:\'この教材の復習はまだありません\'}<small class="muted" style="display:block">${b.sched?(cy===\'no\'?\'計画のタスクを終えても復習には入れない設定です（教材の計画の「復習サイクル」で変えられます）\':`計画のタスクを終えると、その範囲を忘却曲線にそって復習に${cy===\'yes\'?\'入れます\':\'入れるか確認します\'}（教材の計画の「復習サイクル」で変えられます）`):\'\'}</small></span>${rs.length?`<button class="btn sm" data-bkrv="1">復習の一覧へ</button>`:\'\'}</div>`})()}')
 rep("""/*@cloud*/""","""/*@cloud*/
 document.addEventListener('click',e=>{if(!e.target.closest('[data-bkrv]'))return;closeDrawer();const tb=document.querySelector('#tabs [data-v="timer"]');if(tb)tb.click();setTimeout(()=>{tKind='review';LS.set('tkind',tKind);curList='upcoming';renderTasks();const tp=$('#taskPanel');if(tp)tp.scrollIntoView({behavior:'smooth',block:'start'})},80)});""")
+# ---- feedback #28-#32 ----
+# #31-1: unticking a book in the guide only leaves it out of this run; its plan settings stay
+rep("else if(!ids.has(b.id)&&b.sched)delete b.sched;","else if(!ids.has(b.id)&&b.sched)gdSk().add(b.id);if(ids.has(b.id))gdSk().delete(b.id);")
+rep("const on=!!b.sched,r=on?genBook(b,genStartDefault()):null","const on=!!b.sched&&!gdSk().has(b.id),r=on?genBook(b,genStartDefault()):null")
+rep('<input type="checkbox" class="gd_b" value="${b.id}"${on?\' checked\':\'\'}><span>${esc(b.title)}','<input type="checkbox" class="gd_b" value="${b.id}"${on?\' checked\':\'\'}><span>${esc(b.title)}${b.sched&&!on?\'<small style="color:var(--muted)">（今回は作りません・計画の設定は残ります）</small>\':\'\'}')
+rep("gdSubBooks(sid).filter(b=>b.sched)","gdSubBooks(sid).filter(b=>b.sched&&!gdSk().has(b.id))",count=2)
+rep("b.sched&&subs.includes(sbKey(b))&&!isHand(b)","b.sched&&subs.includes(sbKey(b))&&!isHand(b)&&!gdSk().has(b.id)")
+# #28-4: the shelf behind the book drawer shows the edit right away
+rep("else openBook(b.id)};","else{openBook(b.id);renderView()}};")
+# #30-3: a plan measured in time does not show a page cap
+rep("${+sc.max?`・上限 ${uAmt(b,+sc.max)}/日`:''}","${+sc.max&&sc.nm!=='time'?`・上限 ${uAmt(b,+sc.max)}/日`:''}")
+# #29-1: the set counter counts the same way while waiting and while running
+rep("return `このセット: 集中 ${e.k+(T.mode==='focus'&&T.startedAt?1:0)}/${e.n} 回目・","return `このセット: ${T.mode==='focus'?`集中 ${Math.min(e.n,e.k+1)}/${e.n} 回目`:`集中 ${e.k}/${e.n} 回 済み`}・")
+# #28-8: header timer follows a changed focus/break length at once
+rep("if(['focus','short','long'].includes(k)&&!T.running&&!T.startedAt){T.total=T.remaining=durFor(T.mode);persistT()}","if(['focus','short','long'].includes(k)&&!T.running&&!T.startedAt){T.total=T.remaining=durFor(T.mode);persistT();renderTimer()}")
+rep("""/*@cloud*/""","""/*@cloud*/
+function gdSk(){return window.gdSkip=window.gdSkip||new Set()}
+// #29-2: closing a study-task editor with unsaved changes asks first
+document.addEventListener('input',e=>{if(e.target.closest&&e.target.closest('#drawer')&&$('#sp_save'))$('#drawer').dataset.dirty='1'},true);
+document.addEventListener('change',e=>{if(e.target.closest&&e.target.closest('#drawer')&&$('#sp_save'))$('#drawer').dataset.dirty='1';if(e.target.id==='d_book')setTimeout(()=>toast('教材を変更しました（保存済み）'),50)},true);
+document.addEventListener('click',e=>{const dr=$('#drawer');if(!dr||dr.dataset.dirty!=='1'||!$('#sp_save'))return;const isClose=e.target.id==='pclose'||e.target.id==='detail';if(!isClose)return;
+  e.stopPropagation();e.preventDefault();const m=$('#modal');let alt=$('#modalAlt');if(!alt){alt=document.createElement('button');alt.id='modalAlt';alt.className='btn';$('#modalNo').after(alt)}alt.textContent='保存せずに閉じる';alt.hidden=false;
+  const done=()=>{alt.hidden=true};alt.onclick=()=>{m.hidden=true;done();dr.dataset.dirty='';closeDrawer()};
+  confirmBox('保存していない変更があります。保存しますか？','保存する',()=>{done();dr.dataset.dirty='';$('#sp_save').click();setTimeout(()=>{if(!$('#detail').hidden&&$('#sp_save')&&/保存しました/.test(($('#toastMsg')||{}).textContent||''))closeDrawer()},80)});const no=$('#modalNo').onclick;$('#modalNo').onclick=()=>{done();no&&no()}},true);
+new MutationObserver(()=>{const dr=$('#drawer');if(dr)dr.dataset.dirty=''}).observe($('#drawer'),{childList:true});""")
+# #30-1/#32-4: ticking off a planned range counts as progress (and re-planning starts after it)
+rep("function bookProgress(b){if(!b)return 0;if(b.mode==='range')return b.pos||0;","function bookProgress(b){if(!b)return 0;if(b.mode==='range')return Math.max(b.pos||0,doneTo(b));")
+# #30-2: a day does not show the same missed range twice
+rep("((st.plan.miss||{})[d]||[]).forEach(m=>{if(seen.has(m.id))return;","((st.plan.miss||{})[d]||[]).forEach(m=>{if(seen.has(m.id)||out.some(o=>o.title===m.title))return;")
+# #32-1: past papers placed in the buffer start early enough to finish by the deadline
+rep("const n=addDays(s,1);return n>start?n:start}","let n=addDays(s,1);n=fitBuf(b,start,n);return n>start?n:start}")
+# #30-4: "後ろへずらす" also moves reviews off the days with no study
+rep("const n=x.dataset.of==='shift'?shiftOffTasks(list):offToBuf(list);","let n=x.dataset.of==='shift'?shiftOffTasks(list):offToBuf(list);if(x.dataset.of==='shift')n+=shiftOffReviews();")
+rep("const n=k==='offshift'?shiftOffTasks(ov):offToBuf(ov);","let n=k==='offshift'?shiftOffTasks(ov):offToBuf(ov);if(k==='offshift')n+=shiftOffReviews();")
+rep('<button data-of="shift">後ろへずらす<small>その教材の後ろの予定も順に1日ずつ送ります</small></button>','<button data-of="shift">後ろへずらす<small>その教材の後ろの予定も順に1日ずつ送ります。重なる復習も次の勉強日へ動かします</small></button>')
+# #28-1 / #30-6: before re-planning, say what is replaced (and overdue ones), and warn about very long days
+rep("$('#gn_go').onclick=()=>{const ids=$$('.gn_b').filter(c=>c.checked).map(c=>c.value);if(!ids.length){toast(Object.values(res).every(r=>r.err)?'どの教材も作れません。⚠ の「設定する」から直してください':'作る教材にチェックを入れてください');return}",
+"$('#gn_go').onclick=()=>{const ids=$$('.gn_b').filter(c=>c.checked).map(c=>c.value);if(!ids.length){toast(Object.values(res).every(r=>r.err)?'どの教材も作れません。⚠ の「設定する」から直してください':'作る教材にチェックを入れてください');return}\n      if(!window.__gnOk){const today=todayKey(),oldAll=st.tasks.filter(t=>t.source==='plan'&&ids.includes(t.planBook)&&!t.completed),lateN=oldAll.filter(t=>t.due&&t.due<today).length,per={};ids.forEach(id=>((res[id]&&res[id].tasks)||[]).forEach(t=>{if(t.due)per[t.due]=(per[t.due]||0)+taskMin(t)}));const big=Object.entries(per).filter(([d,m])=>m>=360).sort((a,c)=>c[1]-a[1]);\n        if(oldAll.length||big.length){confirmBox(`${oldAll.length?`終わっていない計画のタスク ${oldAll.length}件${lateN?`（うち期限切れ ${lateN}件）`:''}を、新しい予定に置き換えます。${lateN?'期限切れの分は今日以降に配り直し、もとの日には「できなかった」の印が残ります。':''}`:''}${big.length?`1日 約${fmtHM(big[0][1])}になる日があります（${big.slice(0,3).map(([d])=>md(d)).join('・')}${big.length>3?' ほか':''}）。教材の「1日の上限」や曜日、使える時間を見直すと減らせます。`:''}このまま作りますか？`,'作る',()=>{window.__gnOk=1;try{$('#gn_go').click()}finally{window.__gnOk=0}});return}}")
+rep("""/*@cloud*/""","""/*@cloud*/
+const _dt={k:-1,m:new Map()};
+function doneTo(b){const k=st.updatedAt||0;if(_dt.k!==k){_dt.k=k;_dt.m=new Map()}if(_dt.m.has(b.id))return _dt.m.get(b.id);
+  const rs=st.tasks.filter(t=>t.completed&&(t.planBook===b.id||t.book===b.id)&&t.plan&&t.plan.type==='range'&&t.planKind!=='rv'&&!t.bufFill).map(t=>[+t.plan.from,+t.plan.to]).filter(r=>r[1]>0).sort((a,c)=>a[0]-c[0]);
+  let cur=b.pos||0;for(const [f,z] of rs){if(f<=cur+1&&z>cur)cur=z}if(b.total)cur=Math.min(cur,+b.total);_dt.m.set(b.id,cur);return cur}
+function fitBuf(b,start,n){const tg=bookTarget(b);if(!tg||!b.sched)return n;const left=bUnits(b).filter(u=>!unitDone(b,u.id)).length;if(!left)return n;const per=Math.max(1,+b.sched.max||1);let need=Math.ceil(left/per),d=tg,i=0;
+  while(i<1500&&d>=start){if(bw(b,d)>0){need--;if(!need)break}d=addDays(d,-1);i++}return need?n:(d<n?d:n)}
+function shiftOffReviews(){const today=todayKey();let n=0;(st.reviews||[]).forEach(r=>{if(r.paused||!r.due||r.due<today)return;let d=r.due,i=0;while(dayType(d)==='off'&&i<60){d=addDays(d,1);i++}if(d!==r.due){r.due=d;n++}});return n}""")
+# #30-5 / #31-3: say whether "late" is against the deadline itself or the deadline minus reserve days
+rep("${r.late?'（期限に間に合いません）':''}","${r.late?'（'+lateTxt(b,r)+'）':''}")
+rep("${r.late?'・<span style=\"color:var(--pri1)\">期限に間に合いません</span>':''}","${r.late?'・<span style=\"color:var(--pri1)\">'+lateTxt(b,r)+'</span>':''}")
+rep("${r2.late?'・<span style=\"color:var(--pri1)\">期限に間に合いません</span>':''}","${r2.late?'・<span style=\"color:var(--pri1)\">'+lateTxt(b,r2)+'</span>':''}")
+rep("<br><span style=\"color:var(--pri1)\">期限 ${md(r.tgt)} に間に合いません${+tmp.sched.max?","<br><span style=\"color:var(--pri1)\">${lateTxt(tmp,r)}${+tmp.sched.max?")
+rep("${r.late?`<br><span style=\"color:var(--pri1)\">期限 ${md(r.tgt)} に間に合いません</span>`:''}","${r.late?`<br><span style=\"color:var(--pri1)\">${lateTxt(b,r)}</span>`:''}")
+# #31-4: what "1日あたり必要" in the outlook table means
+rep("<h2>教材ごとの見通し</h2>","<h2>教材ごとの見通し</h2><p class=\"muted\" style=\"font-size:12px;margin:0 0 6px\">「1日あたり必要」は、残りの量を今日から期限までの学習日で割った数です。開始日が先の教材や、予備日をとっている教材は、計画の1日の量と違うことがあります。</p>")
+# #28-5: an undo toast stays longer
+rep("toastT=setTimeout(()=>$('#toast').hidden=true,act?6000:3500)}","toastT=setTimeout(()=>$('#toast').hidden=true,act?10000:3500)}")
+# #31-5: a planner tile needs a clearer pull before it starts dragging
+rep("else if(dist>6)pArm(e.clientX,e.clientY);return}","else if(dist>14)pArm(e.clientX,e.clientY);return}")
+# #28-7: auto-resume after pause can be switched off
+rep("<span>集中中の一時停止<small>1回の集中で一時停止できる合計時間。過ぎると自動で再開します</small></span>","<span>集中中の一時停止<small>1回の集中で一時停止できる合計時間。過ぎると自動で再開します（長く中断するときは「制限なし」に）</small></span>")
+# #31-6: when the next review is counted from
+rep('<p style="margin:0;font-size:13.5px" id="rvdQ">どのくらい覚えていましたか？</p>','<p style="margin:0;font-size:13.5px" id="rvdQ">どのくらい覚えていましたか？</p>\n  <small class="muted" style="font-size:11.5px">次の復習日は、実際に復習した日（今日）から数えます。忘却曲線は「最後に思い出した日」から進むためです。</small>')
+# #28-6: "明日へ" next to "日付を変える" in task details
+rep('<button class="btn" id="d_movejump" type="button">日付を変える</button>','<button class="btn" id="d_tomorrow" type="button">明日へ</button><button class="btn" id="d_movejump" type="button">日付を変える</button>')
+# #32-5 / #28-3: what the day's achievement count includes
+rep("d===today?[act?`実績 ${fmtHM(act)}`:'実績 0:00',tot?`達成 ${dn}/${tot}`:''","d===today?[act?`実績 ${fmtHM(act)}`:'実績 0:00',tot?`達成 ${dn}/${tot}（今日の分・遅れは含まない）`:''")
+rep("""/*@cloud*/""","""/*@cloud*/
+function lateTxt(b,r){const real=bookTarget(b);if(real&&r.tgt&&r.tgt<real)return `予備日を除いた ${md(r.tgt)} までに終わりません（期限 ${md(real)} には${r.end&&r.end<=real?'間に合います':'間に合いません'}）`;return `期限 ${md(r.tgt||real)} に間に合いません`}
+// #31-2: a deadline in the past is pointed out before saving
+document.addEventListener('change',e=>{if(e.target.id==='bp_target'&&e.target.value&&e.target.value<todayKey())toast('期限が過去の日付です。日付を確かめてください')});
+document.addEventListener('click',e=>{if(e.target.id!=='bp_save'||window.__bpOk)return;const i=$('#bp_target');if(!i||!i.value||i.value>=todayKey())return;e.stopPropagation();e.preventDefault();
+  confirmBox(`期限（${md(i.value)}）が過去の日付です。このまま保存しますか？`,'保存する',()=>{window.__bpOk=1;try{$('#bp_save').click()}finally{window.__bpOk=0}})},true);
+// #28-6: move a task to tomorrow from its details
+document.addEventListener('click',e=>{if(e.target.id!=='d_tomorrow')return;const t=taskById(detailId);if(!t)return;if(t.repeat&&t.repeat!=='none'){toast('繰り返しのタスクは「日付を変える」から動かしてください');return}
+  const prev=t.due,nd=addDays(todayKey(),1);t.due=nd;closeDrawer();save();toast(`明日（${mdw(nd)}）へ移しました`,'元に戻す',()=>{t.due=prev;save()})});
+// #28-2: overdue tasks can be moved to today in one go from the today list
+{const _rt=renderTasks;renderTasks=function(){_rt.apply(this,arguments);try{if(curList!=='today'||query)return;const od=st.tasks.filter(t=>isOverdue(t)&&(!t.repeat||t.repeat==='none'));if(!od.length)return;
+  $('#taskList').insertAdjacentHTML('afterbegin',`<li class="grp" style="display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--pri1)"><span>期限切れ ${od.length}件</span><span style="display:flex;gap:6px"><button class="btn sm" data-odmv="0">まとめて今日へ</button><button class="btn sm" data-odmv="1">まとめて明日へ</button></span></li>`)}catch(x){}}}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-odmv]');if(!b)return;const od=st.tasks.filter(t=>isOverdue(t)&&(!t.repeat||t.repeat==='none'));if(!od.length)return;const snap=od.map(t=>[t,t.due]),nd=addDays(todayKey(),+b.dataset.odmv);
+  od.forEach(t=>{noteMiss(t,nd);t.due=nd});save();toast(`期限切れ ${od.length}件を${+b.dataset.odmv?'明日':'今日'}へ移しました`,'元に戻す',()=>{snap.forEach(([t,d])=>t.due=d);save()})});""")
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
