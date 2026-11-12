@@ -1409,10 +1409,10 @@ function stamp(){if(!lastSnap){setSnap();return}const now=Date.now();st.tomb=st.
   const old=now-90*864e5;for(const id in st.tomb)if(st.tomb[id]<old)delete st.tomb[id];setSnap()}
 function mergeState(L,R){const lNew=(L.updatedAt||0)>=(R.updatedAt||0),base=lNew?L:R;const M=JSON.parse(JSON.stringify(base));let dirty=lNew&&(L.updatedAt||0)!==(R.updatedAt||0);
   const tomb=Object.assign({},R.tomb||{});for(const id in (L.tomb||{})){if(!(tomb[id]>=L.tomb[id])){tomb[id]=L.tomb[id];dirty=true}}
-  const mergeArr=(a,b)=>{a=a||[];b=b||[];const m=new Map(),order=[];
+  const mergeArr=(a,b)=>{a=a||[];b=b||[];const m=new Map(),order=[],la=new Set(a),lm=new Map(a.filter(x=>x&&x.id).map(x=>[x.id,x]));
     const put=it=>{if(!it||!it.id)return;const o=m.get(it.id);if(!o){m.set(it.id,it);order.push(it.id)}else if((it.u||0)>(o.u||0))m.set(it.id,it)};
     (lNew?a:b).forEach(put);(lNew?b:a).forEach(put);
-    const out=order.map(id=>m.get(id)).filter(it=>!(tomb[it.id]&&tomb[it.id]>=(it.u||0))).map(it=>JSON.parse(JSON.stringify(it)));
+    const out=order.map(id=>m.get(id)).filter(it=>!(tomb[it.id]&&tomb[it.id]>=(it.u||0))).map(it=>{if(la.has(it))return it;const c=JSON.parse(JSON.stringify(it)),o=lm.get(it.id);if(o){for(const k of Object.keys(o))delete o[k];return Object.assign(o,c)}return c});
     const bj=new Map(b.filter(x=>x&&x.id).map(x=>[x.id,JSON.stringify(x)]));if(out.length!==bj.size||out.some(x=>bj.get(x.id)!==JSON.stringify(x)))dirty=true;return out};
   SCOLS.forEach(c=>M[c]=mergeArr(L[c],R[c]));M.plan=M.plan||{};PCOLS.forEach(c=>M.plan[c]=mergeArr(L.plan&&L.plan[c],R.plan&&R.plan[c]));
   {const lp=L.plan||{},rp=R.plan||{};const mm=(k,pick)=>{const a=lp[k]||{},b=rp[k]||{};if(!lp[k]&&!rp[k])return;const out=Object.assign({},lNew?b:a,lNew?a:b);for(const key in a){if(b[key]!==undefined)out[key]=pick(a[key],b[key])}M.plan[k]=out;if(JSON.stringify(out)!==JSON.stringify(rp[k]||{}))dirty=true};
@@ -1449,10 +1449,11 @@ const Sync={col:null,ready:false,pend:{},busy:{},stateTimer:null,first:true,unsu
       this.col.onSnapshot(snap=>this.onSnap(snap),err=>this.set('err','同期エラー','この端末には保存されています: '+(err&&err.code||'')));
     }catch(e){this.set('','この端末に保存')}},
   onSnap(snap){
-    let rs=null;const rm={};
-    for(const d of snap.docs){const v=d.data();if(!v)continue;if(d.id==='state'){try{rs=v.json?JSON.parse(v.json):null}catch(e){}}else if(d.id.startsWith('m-'))rm[d.id.slice(2)]=Array.isArray(v.sessions)?v.sessions:[]}
+    let rs=null;const rm={},sd={};
+    for(const d of snap.docs){const v=d.data();if(!v)continue;if(d.id==='state'||/^state-\d+$/.test(d.id))sd[d.id]=v;else if(d.id.startsWith('m-'))rm[d.id.slice(2)]=Array.isArray(v.sessions)?v.sessions:[]}
+    if(sd.state){const n=+sd.state.parts||1;let s=sd.state.json||'',ok=true;for(let i=1;i<n;i++){const c=sd['state-'+i];if(!c||c.updatedAt!==sd.state.updatedAt){ok=false;break}s+=c.json||''}if(ok&&s){try{rs=JSON.parse(s)}catch(e){}}}
     let changed=false;
-    if(rs&&(rs.updatedAt||0)!==(st.updatedAt||0)&&!snap.metadata.hasPendingWrites){const loc=st.updatedAt?st:null;const R=migrate(rs);let M=R,dirty=rs.v!==3;if(loc){const x=mergeState(loc,R);M=migrate(x.M);dirty=dirty||x.dirty}
+    if(rs&&(rs.updatedAt||0)!==(st.updatedAt||0)&&(rs.updatedAt||0)!==this.rsAt&&!snap.metadata.hasPendingWrites){this.rsAt=rs.updatedAt||0;const loc=st.updatedAt?st:null;const R=migrate(rs);let M=R,dirty=rs.v!==3;if(loc){const x=mergeState(loc,R);M=migrate(x.M);dirty=dirty||x.dirty}
       st=M;S=st.settings;migrateMix();setSnap();LS.set('state',st);changed=true;try{pd=Object.assign({moves:{},dels:[],adds:[]},st.plan.pd||{})}catch(e){}Mix.update();if(dirty){this.ready=true;this.pushStateNow()}setTimeout(()=>{try{cleanSamples()}catch(e){}try{migrateAutoRoutines()}catch(e){}},60)}
     else if(this.first&&(!rs||(rs.updatedAt||0)<(st.updatedAt||0)||rs.v!==3)){this.ready=true;this.pushStateNow()}
     const ver=s=>s.u||s.e||0;
@@ -1463,16 +1464,18 @@ const Sync={col:null,ready:false,pend:{},busy:{},stateTimer:null,first:true,unsu
       if(ln){this.ready=true;this.pushMonth(mk)}}
     if(changed){normSessions();LS.set('months',months);applyTheme();renderAll()}
     this.ready=true;this.first=false;
-    if(!snap.metadata.fromCache)this.set('on','同期済み','同じアカウントで開いた端末どうしで同期されます')},
+    if(!snap.metadata.fromCache&&!Object.keys(this.errs||{}).length)this.set('on','同期済み','同じアカウントで開いた端末どうしで同期されます')},
   write(id,fn){if(!this.col)return;this.pend[id]=fn;this.flush(id)},
   async flush(id){if(this.busy[id]||!this.pend[id])return;const fn=this.pend[id];delete this.pend[id];this.busy[id]=true;
-    this.retry=this.retry||{};try{await this.col.doc(id).set(fn());if(this.retry[id]){this.retry[id]=0;this.set('on','同期済み','同じアカウントで開いた端末どうしで同期されます')}}catch(e){
+    this.retry=this.retry||{};this.errs=this.errs||{};try{const d=fn();if(d&&d.__docs){const fs=this.col.firestore;if(fs&&fs.batch){const bt=fs.batch();d.__docs.forEach(([k,v])=>bt.set(this.col.doc(k),v));await bt.commit()}else{for(const [k,v] of d.__docs.slice(1))await this.col.doc(k).set(v);await this.col.doc(d.__docs[0][0]).set(d.__docs[0][1])}}else await this.col.doc(id).set(d);delete this.errs[id];if(this.retry[id]){this.retry[id]=0;this.set('on','同期済み','同じアカウントで開いた端末どうしで同期されます')}}catch(e){
       if(e&&e.code==='unavailable'){this.pend[id]=this.pend[id]||fn;setTimeout(()=>{this.busy[id]=false;this.flush(id)},1500+Math.random()*1500);return}
       const n=this.retry[id]=(this.retry[id]||0)+1;if(n<=3){this.pend[id]=this.pend[id]||fn;this.set('err','同期エラー（再試行中）','この端末には保存されています。少し待って自動でもう一度送ります');setTimeout(()=>{this.busy[id]=false;this.flush(id)},4000*n);return}
-      this.retry[id]=0;this.set('err','同期エラー','この端末には保存されています。次に保存したときにもう一度送ります: '+((e&&e.message)||''))}
+      this.retry[id]=0;this.errs[id]=1;this.set('err','同期エラー','この端末には保存されています。次に保存したときにもう一度送ります: '+((e&&e.message)||''))}
     this.busy[id]=false;if(this.pend[id])this.flush(id)},
   pushState(){if(!this.col||!this.ready)return;clearTimeout(this.stateTimer);this.stateTimer=setTimeout(()=>this.pushStateNow(),1200)},
-  pushStateNow(){if(!this.col)return;const j=JSON.stringify(st);this.write('state',()=>({json:j,updatedAt:st.updatedAt}))},
+  pushStateNow(){if(!this.col)return;const j=JSON.stringify(st),at=st.updatedAt,N=250000;if(j.length<=N){this.write('state',()=>({json:j,updatedAt:at}));return}
+    const ps=[];for(let i=0;i<j.length;){let e=Math.min(j.length,i+N);const c=j.charCodeAt(e-1);if(e<j.length&&c>=0xD800&&c<=0xDBFF)e--;ps.push(j.slice(i,e));i=e}
+    this.write('state',()=>({__docs:ps.map((p,i)=>i?['state-'+i,{json:p,updatedAt:at}]:['state',{json:p,parts:ps.length,updatedAt:at}])}))},
   pushMonth(mk){if(!this.col||!this.ready)return;this.write('m-'+mk,()=>({sessions:JSON.parse(JSON.stringify(months[mk]||[]))}))}};
 
 /* ================= audio ================= */
