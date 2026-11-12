@@ -2528,7 +2528,7 @@ function cyAsked(t){const b=book(t.book),r=cyRange(t);if(!b||!r||!b.cyAsk)return
 function cyMark(t){const b=book(t.book),r=cyRange(t);if(!b||!r)return;const A=b.cyAsk=b.cyAsk||{r:[],u:[]};A.r=A.r||[];A.u=A.u||[];if(r.k==='r')A.r.push([r.a,r.b]);else r.ids.forEach(id=>{if(!A.u.includes(id))A.u.push(id)});if(A.r.length>300)A.r=A.r.slice(-300)}
 function maybeAskCycle(t){if(!inCycle(t)&&(t.cycle==='yes'||t.cycle==='maybe')){if(cyAsked(t))return;cyMark(t);setTimeout(()=>askCycle(t,t.cycle),250)}}
 function toggleDone(t,o){o=o||{};
-  if(t.completed){t.completed=false;t.completedAt=null;save();return}
+  if(t.completed){const ca=t.completedAt;t.completed=false;t.completedAt=null;save();if(!o.noAsk)toast(`「${t.title.length>16?t.title.slice(0,16)+'…':t.title}」を未完了に戻しました`,'元に戻す',()=>{t.completed=true;t.completedAt=ca;save()});return}
   if(t.repeat&&t.repeat!=='none'){t.log.push({d:todayKey(),at:Date.now(),done:t.done});const prev={due:t.due,done:t.done,subs:t.subs.map(s=>s.d)};t.due=nextDue(t);t.done=0;t.prompted=false;t.subs.forEach(s=>s.d=false);
     const fin=pastUntil(t);if(fin){t.completed=true;t.completedAt=Date.now();t.endedRepeat=true}
     save();toast(fin?'完了！繰り返しはこれで終わりです':`完了！次回は ${shortDay(t.due)}`,'元に戻す',()=>{t.log.pop();t.due=prev.due;t.done=prev.done;t.completed=false;t.completedAt=null;t.endedRepeat=false;t.subs.forEach((s,i)=>s.d=prev.subs[i]);save()});if(!o.noAsk)maybeAskCycle(t);return}
@@ -4746,7 +4746,7 @@ if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched
 /*@cloud*/
 function lateTxt(b,r){const real=bookTarget(b);if(real&&r.tgt&&r.tgt<real)return `予備日を除いた ${md(r.tgt)} までに終わりません（期限 ${md(real)} には${r.end&&r.end<=real?'間に合います':'間に合いません'}）`;return `期限 ${md(r.tgt||real)} に間に合いません`}
 // #31-2: a deadline in the past is pointed out before saving
-document.addEventListener('change',e=>{if(e.target.id==='bp_target'&&e.target.value&&e.target.value<todayKey())toast('期限が過去の日付です。日付を確かめてください')});
+document.addEventListener('change',e=>{if(e.target.id==='bp_target'&&e.target.value&&e.target.value<todayKey()&&+e.target.value.slice(0,4)>=new Date().getFullYear()-1)toast('期限が過去の日付です。日付を確かめてください')});
 document.addEventListener('click',e=>{if(e.target.id!=='bp_save'||window.__bpOk)return;const i=$('#bp_target');if(!i||!i.value||i.value>=todayKey())return;e.stopPropagation();e.preventDefault();
   confirmBox(`期限（${md(i.value)}）が過去の日付です。このまま保存しますか？`,'保存する',()=>{window.__bpOk=1;try{$('#bp_save').click()}finally{window.__bpOk=0}})},true);
 // #28-6: move a task to tomorrow from its details

@@ -589,5 +589,9 @@ document.addEventListener('click',e=>{if(e.target.id!=='d_tomorrow')return;const
   $('#taskList').insertAdjacentHTML('afterbegin',`<li class="grp" style="display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--pri1)"><span>期限切れ ${od.length}件</span><span style="display:flex;gap:6px"><button class="btn sm" data-odmv="0">まとめて今日へ</button><button class="btn sm" data-odmv="1">まとめて明日へ</button></span></li>`)}catch(x){}}}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-odmv]');if(!b)return;const od=st.tasks.filter(t=>isOverdue(t)&&(!t.repeat||t.repeat==='none'));if(!od.length)return;const snap=od.map(t=>[t,t.due]),nd=addDays(todayKey(),+b.dataset.odmv);
   od.forEach(t=>{noteMiss(t,nd);t.due=nd});save();toast(`期限切れ ${od.length}件を${+b.dataset.odmv?'明日':'今日'}へ移しました`,'元に戻す',()=>{snap.forEach(([t,d])=>t.due=d);save()})});""")
+# #37-7: no "past deadline" toast while the year is still being typed (e.g. 0002-11-30)
+rep("if(e.target.id==='bp_target'&&e.target.value&&e.target.value<todayKey())toast(","if(e.target.id==='bp_target'&&e.target.value&&e.target.value<todayKey()&&+e.target.value.slice(0,4)>=new Date().getFullYear()-1)toast(")
+# #37-1: say which task went back to "not done", with undo
+rep("if(t.completed){t.completed=false;t.completedAt=null;save();return}","if(t.completed){const ca=t.completedAt;t.completed=false;t.completedAt=null;save();if(!o.noAsk)toast(`「${t.title.length>16?t.title.slice(0,16)+'…':t.title}」を未完了に戻しました`,'元に戻す',()=>{t.completed=true;t.completedAt=ca;save()});return}")
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
