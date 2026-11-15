@@ -546,7 +546,7 @@ rep("const n=k==='offshift'?shiftOffTasks(ov):offToBuf(ov);","let n=k==='offshif
 rep('<button data-of="shift">後ろへずらす<small>その教材の後ろの予定も順に1日ずつ送ります</small></button>','<button data-of="shift">後ろへずらす<small>その教材の後ろの予定も順に1日ずつ送ります。重なる復習も次の勉強日へ動かします</small></button>')
 # #28-1 / #30-6: before re-planning, say what is replaced (and overdue ones), and warn about very long days
 rep("$('#gn_go').onclick=()=>{const ids=$$('.gn_b').filter(c=>c.checked).map(c=>c.value);if(!ids.length){toast(Object.values(res).every(r=>r.err)?'どの教材も作れません。⚠ の「設定する」から直してください':'作る教材にチェックを入れてください');return}",
-"$('#gn_go').onclick=()=>{const ids=$$('.gn_b').filter(c=>c.checked).map(c=>c.value);if(!ids.length){toast(Object.values(res).every(r=>r.err)?'どの教材も作れません。⚠ の「設定する」から直してください':'作る教材にチェックを入れてください');return}\n      if(!window.__gnOk){const today=todayKey(),oldAll=st.tasks.filter(t=>t.source==='plan'&&ids.includes(t.planBook)&&!t.completed),lateN=oldAll.filter(t=>t.due&&t.due<today).length,per={};ids.forEach(id=>((res[id]&&res[id].tasks)||[]).forEach(t=>{if(t.due)per[t.due]=(per[t.due]||0)+taskMin(t)}));const big=Object.entries(per).filter(([d,m])=>m>=360).sort((a,c)=>c[1]-a[1]);\n        if(oldAll.length||big.length){confirmBox(`${oldAll.length?`終わっていない計画のタスク ${oldAll.length}件${lateN?`（うち期限切れ ${lateN}件）`:''}を、新しい予定に置き換えます。${lateN?'期限切れの分は今日以降に配り直し、もとの日には「できなかった」の印が残ります。':''}`:''}${big.length?`1日 約${fmtHM(big[0][1])}になる日があります（${big.slice(0,3).map(([d])=>md(d)).join('・')}${big.length>3?' ほか':''}）。教材の「1日の上限」や曜日、使える時間を見直すと減らせます。`:''}このまま作りますか？`,'作る',()=>{window.__gnOk=1;try{$('#gn_go').click()}finally{window.__gnOk=0}});return}}")
+"$('#gn_go').onclick=()=>{const ids=$$('.gn_b').filter(c=>c.checked).map(c=>c.value);if(!ids.length){toast(Object.values(res).every(r=>r.err)?'どの教材も作れません。⚠ の「設定する」から直してください':'作る教材にチェックを入れてください');return}\n      if(!window.__gnOk){const today=todayKey(),oldAll=st.tasks.filter(t=>t.source==='plan'&&ids.includes(t.planBook)&&!t.completed),lateN=oldAll.filter(t=>t.due&&t.due<today).length,per={};ids.forEach(id=>((res[id]&&res[id].tasks)||[]).forEach(t=>{if(t.due)per[t.due]=(per[t.due]||0)+taskMin(t)}));const big=Object.entries(per).filter(([d,m])=>m>=360).sort((a,c)=>c[1]-a[1]);\n        if(oldAll.length||big.length){confirmBox(`${oldAll.length?`終わっていない計画のタスク ${oldAll.length}件${lateN?`（うち期限切れ ${lateN}件）`:''}を、新しい予定に置き換えます。${lateN?'期限切れの分の範囲は、今日以降の予定にまとめて配り直します（1件ずつ移すのではないので、件数は減ることがあります）。もとの日には「できなかった」の印が残ります。':''}`:''}${big.length?`1日 約${fmtHM(big[0][1])}になる日があります（${big.slice(0,3).map(([d])=>md(d)).join('・')}${big.length>3?' ほか':''}）。教材の「1日の上限」や曜日、使える時間を見直すと減らせます。`:''}このまま作りますか？`,'作る',()=>{window.__gnOk=1;try{$('#gn_go').click()}finally{window.__gnOk=0}});return}}")
 rep("""/*@cloud*/""","""/*@cloud*/
 const _dt={k:-1,m:new Map()};
 function doneTo(b){const k=st.updatedAt||0;if(_dt.k!==k){_dt.k=k;_dt.m=new Map()}if(_dt.m.has(b.id))return _dt.m.get(b.id);
@@ -606,5 +606,27 @@ rep("this.retry=this.retry||{};try{await this.col.doc(id).set(fn());if(this.retr
 # 4) a failed save keeps showing as an error (it is not hidden by the next "同期済み")
 rep("this.retry[id]=0;this.set('err','同期エラー','この端末には保存されています。次に保存したときにもう一度送ります: '+((e&&e.message)||''))}","this.retry[id]=0;this.errs[id]=1;this.set('err','同期エラー','この端末には保存されています。次に保存したときにもう一度送ります: '+((e&&e.message)||''))}")
 rep("if(!snap.metadata.fromCache)this.set('on','同期済み','同じアカウントで開いた端末どうしで同期されます')},","if(!snap.metadata.fromCache&&!Object.keys(this.errs||{}).length)this.set('on','同期済み','同じアカウントで開いた端末どうしで同期されます')},")
+# ---- feedback #40/#41 ----
+# #41-3: re-solve (×・△) tasks have a percentage (was NaN%)
+rep("return {goal,done:Math.min(done,goal||done),remain:","return {goal,done:Math.min(done,goal||done),pct:goal?Math.min(100,done/goal*100):0,remain:")
+# #41-4: a day estimate past 24 hours is shown as such
+rep("`${ld||cap!=null?`約${fmtHM(ld)}","`${ld||cap!=null?`${ld>1440?'24時間を超えています（多すぎる日をならしてください）':'約'+fmtHM(ld)}")
+# #41-9: a partly-done book shows the learned part as progress
+rep("const pi=planInfo(b),sc=b.sched,tot=b.total,pos=bookProgress(b),","const pi=planInfo(b),sc=b.sched,tot=b.total,pos=shownPos(b),")
+rep("function bookCard(b){const s=bookStats(b),p=subj(b.subject),pos=bookProgress(b);","function bookCard(b){const s=bookStats(b),p=subj(b.subject),pos=shownPos(b);")
+rep("function openBook(id){const b=book(id);if(!b)return;const s=bookStats(b),pos=bookProgress(b),","function openBook(id){const b=book(id);if(!b)return;const s=bookStats(b),pos=shownPos(b),")
+# #41-10: a book planned by units shows its percentage by units
+rep("（${Math.min(100,Math.round(pos/b.total*100))}%）","（${bNm(b)==='unit'&&bUnits(b).length?(()=>{const uc=unitCounts(b);return `単元 ${uc.d}/${uc.n}・${uc.n?Math.round(uc.d/uc.n*100):0}%`})():Math.min(100,Math.round(pos/b.total*100))+'%'}）")
+# #41-12: units per day shown as the real range (e.g. 2〜3回) instead of one number
+rep("function perTxt(b,r){return r.unitMode?(r.per>0&&r.per<0.95?`約${Math.round(1/r.per)}日に1単元`:`約${Math.round(r.per*10)/10}単元`)","function perTxt(b,r){return r.unitMode?(r.per>0&&r.per<0.95?`約${Math.round(1/r.per)}日に1単元`:(()=>{const u=b&&b.unit&&b.unit!=='ページ'?b.unit:'単元',c={};(r.tasks||[]).filter(t=>t.planKind!=='rv'&&t.plan&&Array.isArray(t.plan.ids)).forEach(t=>c[t.due]=(c[t.due]||0)+t.plan.ids.length);const v=Object.values(c);if(v.length){const lo=Math.min(...v),hi=Math.max(...v);if(lo!==hi)return `${lo}〜${hi}${u}（平均 約${Math.round(v.reduce((a,x)=>a+x,0)/v.length*10)/10}${u}）`;return `${lo}${u}`}return `約${Math.round(r.per*10)/10}${u}`})())")
+rep("""/*@cloud*/""","""/*@cloud*/
+function shownPos(b){const p=bookProgress(b);return bkind(b)==='part'&&b.mode==='range'?Math.max(p,+((b.sched&&b.sched.learned)??b.learned)||0):p}
+// #41-11: the "今回の学習を記録" card goes away once it is saved
+document.addEventListener('click',e=>{if(e.target.id==='rc_save'||e.target.id==='rc_rv')setTimeout(()=>{try{renderRecCard()}catch(x){}},0)});
+// #40-2 / #40-5: after the plan's amount or deadline changes, keep the "計画とずれています" note and offer to rebuild
+{const _eb=editBookPlan;editBookPlan=function(id){window.__bpId=id;const b=book(id);window.__bpSig=b&&b.sched?JSON.stringify(b.sched.genSig||genSig(b)):null;return _eb.apply(this,arguments)}}
+document.addEventListener('click',e=>{if(e.target.id!=='bp_save')return;setTimeout(()=>{const b=book(window.__bpId);if(!b||!b.sched||!window.__bpSig||isHand(b))return;if(!/計画を保存しました/.test(($('#toastMsg')||{}).textContent||''))return;
+  if(!st.tasks.some(t=>t.source==='plan'&&t.planBook===b.id&&!t.completed))return;const old=JSON.parse(window.__bpSig);if(JSON.stringify(old)===JSON.stringify(genSig(b)))return;window.__bpSig=null;
+  b.sched.genSig=old;save(true);confirmBox(`「${b.title}」の計画の設定（量・期限など）が変わりました。作ってある予定は前の設定のままです。今の設定で作り直しますか？`,'作り直す',()=>regenBook(b))},80)});""")
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))

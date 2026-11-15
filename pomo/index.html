@@ -2503,7 +2503,7 @@ function planText(t){const p=t&&t.plan,b=book(t&&t.book),u=b?b.unit:'';if(!p)ret
   if(p.type==='units')return unitNames(b,p.ids||[]);
   if(p.type==='range'){if(u==='%')return `${p.from-1}〜${p.to}%`;return (u==='ページ'?'p.':'')+(p.from===p.to?p.from:p.from+'〜'+p.to)+(u==='ページ'?'':u)}if(p.type==='amount')return p.amt+u;return fmtMin(p.min)}
 function autoTitle(t){const b=book(t.book),sx=t.plan&&t.plan.stg&&b&&stageMode(b)?stageOf(b,t.plan.stg):null,pf=(t.slot?`（${t.slot}）`:'')+(sx?((sx.name||sx.lap>1)?`（${stageLabel(b,sx)}）`:''):(t.plan&&(t.plan.lap>1||t.plan.lap==='buf')&&b?`（${lapLabel(b,t.plan.lap)}）`:''));return pf+[b?b.title:(t.title||'学習'),planText(t)].filter(Boolean).join(' ')}
-function taskProg(t){if(!isStudy(t)||!t.plan)return null;if(t.plan.type==='retry'){const b=book(t.book),goal=t.plan.n||0;let done=0;if(b)Object.keys(b.marks||{}).forEach(k=>{const m=markAt(b,k,t.plan.lap);if(m&&m.t===t.id)done++});return {goal,done:Math.min(done,goal||done),remain:goal?`あと ${Math.max(0,goal-done)}問`:'解き直す問題はありません',next:null}}const p=t.plan,ss=allSessions().filter(s=>s.t===t.id),b=book(t.book),u=b?b.unit:'',pre=u==='ページ'?'p.':'';let done,goal,next=null;
+function taskProg(t){if(!isStudy(t)||!t.plan)return null;if(t.plan.type==='retry'){const b=book(t.book),goal=t.plan.n||0;let done=0;if(b)Object.keys(b.marks||{}).forEach(k=>{const m=markAt(b,k,t.plan.lap);if(m&&m.t===t.id)done++});return {goal,done:Math.min(done,goal||done),pct:goal?Math.min(100,done/goal*100):0,remain:goal?`あと ${Math.max(0,goal-done)}問`:'解き直す問題はありません',next:null}}const p=t.plan,ss=allSessions().filter(s=>s.t===t.id),b=book(t.book),u=b?b.unit:'',pre=u==='ページ'?'p.':'';let done,goal,next=null;
   if(p.type==='time'){done=ss.reduce((a,s)=>a+s.m,0);if(T.taskId===t.id&&T.startedAt&&T.mode==='focus')done+=segSec()/60;goal=p.min}
   else if(p.type==='amount'){done=ss.reduce((a,s)=>a+(+s.amt||0),0);goal=p.amt}
   else if(p.type==='units'){goal=(p.ids||[]).length;done=t.planKind==='rv'||!b?0:p.ids.filter(id=>unitDone(b,id)).length}
@@ -2737,7 +2737,7 @@ function openStudyTask(id,preset){
 let shelfSubj=LS.get('shelfSubj','all');
 function bookStats(b){const ss=allSessions().filter(s=>s.book===b.id);const ws=weekStart(todayKey());
   return {ss,min:ss.reduce((a,s)=>a+s.m,0),week:ss.filter(s=>dayKey(s.s)>=ws).reduce((a,s)=>a+s.m,0),last:ss.length?ss[ss.length-1].s:0}}
-function bookCard(b){const s=bookStats(b),p=subj(b.subject),pos=bookProgress(b);
+function bookCard(b){const s=bookStats(b),p=subj(b.subject),pos=shownPos(b);
   return `<button class="book" data-book="${b.id}">${coverHTML(b)}<div style="min-width:0"><div class="bt">${esc(b.title)}</div>
     <div class="bs">${p?esc(p.name)+'・':''}${b.total?`${pos} / ${b.total} ${b.unit}`:(pos?pos+' '+b.unit:(bUnits(b).length?'':'記録なし'))}${bUnits(b).length?(()=>{const uc=unitCounts(b);return `${b.total||pos?'・':''}単元 ${uc.d}/${uc.n}`})():''}</div>
     ${b.total?`<div class="bar"><i style="width:${Math.min(100,pos/b.total*100)}%;background:${bookColor(b)}"></i></div>`:''}
@@ -2779,12 +2779,12 @@ function openCats(){openDrawer(`<div class="dh"><h3>カテゴリー</h3><button 
 $('#subjChips').onclick=e=>{const c=e.target.closest('[data-subj]');if(!c)return;shelfSubj=c.dataset.subj;LS.set('shelfSubj',shelfSubj);renderShelf()};
 document.addEventListener('click',e=>{const b=e.target.closest('[data-book]');if(b)openBook(b.dataset.book)});
 $('#addBook').onclick=()=>editBook(null);
-function openBook(id){const b=book(id);if(!b)return;const s=bookStats(b),pos=bookProgress(b),p=subj(b.subject);
+function openBook(id){const b=book(id);if(!b)return;const s=bookStats(b),pos=shownPos(b),p=subj(b.subject);
   const recs=s.ss.slice().reverse();
   openDrawer(`<div class="dh"><h3>教材</h3><button class="btn" id="pclose">閉じる</button></div>
     <div class="bhead">${coverHTML(b)}<div style="min-width:0;flex:1"><div style="font-weight:600;font-size:17px;overflow-wrap:anywhere">${esc(b.title)}</div>
       <div class="muted" style="font-size:12.5px">${p?esc(p.name)+'・':''}${b.mode==='range'?'範囲で記録':'量で記録'}・単位: ${b.unit}</div>
-      ${b.total?`<div class="bar" style="margin-top:10px"><i style="width:${Math.min(100,pos/b.total*100)}%;background:${bookColor(b)}"></i></div><div class="muted" style="font-size:12px;margin-top:4px">${pos} / ${b.total} ${b.unit}（${Math.min(100,Math.round(pos/b.total*100))}%）${b.mode==='range'&&pos<b.total?`・次は ${pos+1} から`:''}</div>`:''}</div></div>
+      ${b.total?`<div class="bar" style="margin-top:10px"><i style="width:${Math.min(100,pos/b.total*100)}%;background:${bookColor(b)}"></i></div><div class="muted" style="font-size:12px;margin-top:4px">${pos} / ${b.total} ${b.unit}（${bNm(b)==='unit'&&bUnits(b).length?(()=>{const uc=unitCounts(b);return `単元 ${uc.d}/${uc.n}・${uc.n?Math.round(uc.d/uc.n*100):0}%`})():Math.min(100,Math.round(pos/b.total*100))+'%'}）${b.mode==='range'&&pos<b.total?`・次は ${pos+1} から`:''}</div>`:''}</div></div>
     ${bUnits(b).length?(()=>{const uc=unitCounts(b);return `<details class="adv"${uc.n<=12?' open':''}><summary>単元 ${uc.d} / ${uc.n} 済${uc.l?`・既習 ${uc.l}`:''}</summary><div id="b_units">${unitChecksHTML(b,bUnits(b),id=>unitDone(b,id),id=>unitLearned(b,id),bkind(b)!=='new')}</div></details>`})():''}
     <div class="seg" id="b_status" style="align-self:flex-start">${Object.entries(ST_LABEL).map(([k,n])=>`<button data-st="${k}" aria-pressed="${b.status===k}">${n}</button>`).join('')}</div>
     <div class="bstats"><div><b>${fmtHM(s.min)}</b><span>累計</span></div><div><b>${fmtHM(s.week)}</b><span>今週</span></div><div><b>${s.ss.length}</b><span>記録回数</span></div></div>
@@ -3331,7 +3331,7 @@ function applySide(b,r){const sd=r&&r.side;if(!sd)return;
   (sd.reviews||[]).forEach(x=>{const it=newReview({title:x.title,book:b.id,subject:b.subject,fromBook:b.id});it.due=x.due;st.reviews.push(it)});
   if(sd.tasks&&sd.tasks.length){}}
 function perLbl(b,r){const t=perTxt(b,r);return /日に/.test(t)?t:'1日 '+t}
-function perTxt(b,r){return r.unitMode?(r.per>0&&r.per<0.95?`約${Math.round(1/r.per)}日に1単元`:`約${Math.round(r.per*10)/10}単元`):r.timeMode?`約${fmtMin(Math.round(r.per))}`:uAmt(b,r.per)}
+function perTxt(b,r){return r.unitMode?(r.per>0&&r.per<0.95?`約${Math.round(1/r.per)}日に1単元`:(()=>{const u=b&&b.unit&&b.unit!=='ページ'?b.unit:'単元',c={};(r.tasks||[]).filter(t=>t.planKind!=='rv'&&t.plan&&Array.isArray(t.plan.ids)).forEach(t=>c[t.due]=(c[t.due]||0)+t.plan.ids.length);const v=Object.values(c);if(v.length){const lo=Math.min(...v),hi=Math.max(...v);if(lo!==hi)return `${lo}〜${hi}${u}（平均 約${Math.round(v.reduce((a,x)=>a+x,0)/v.length*10)/10}${u}）`;return `${lo}${u}`}return `約${Math.round(r.per*10)/10}${u}`})()):r.timeMode?`約${fmtMin(Math.round(r.per))}`:uAmt(b,r.per)}
 function genText(b,r){if(r.err)return r.err;return genText0(b,r)+(r.bufTxt?`<br><small class="muted">${r.bufTxt}</small>`:'')+(r.stNotes&&r.stNotes.length?`<br><small class="muted">${r.stNotes.map(esc).join('<br>')}</small>`:'')}
 function genText0(b,r){if(!r.reviewOnly&&!r.per&&r.rvDesc)return `⚠ ${r.base}<br>${r.rvDesc}`;return r.reviewOnly?`${r.base}${r.tasks.length?`・${r.tasks.length}日分`:''}`:`${r.base}・${perLbl(b,r)}・${r.tasks.filter(t=>t.planKind!=='rv').length}日分・${r.end?md(r.end)+' に終わる予定':''}${r.rvDesc?`<br>${r.rvDesc}`:''}`}
 
@@ -3854,7 +3854,7 @@ function renderPlGoals(){const wm=weekMin(),g=S.weeklyGoalH*60,roots=st.goals.fi
     <div class="plrow2"><div class="exam" style="grid-template-columns:1fr auto"><div><div class="nm">今週の目標 ${S.weeklyGoalH}時間</div><div class="wk">今週 ${fmtHM(wm)}${g?`・${wm>=g?'達成！':'あと '+fmtMin(g-wm)}`:''}</div><div class="bar" style="margin-top:6px;background:var(--surface)"><i style="width:${g?Math.min(100,wm/g*100):0}%"></i></div></div><button class="btn sm" data-weekly>変更</button></div>
       <label class="f">計画表のひとこと（標語）<input id="plMotto" maxlength="60" value="${esc(st.plan.motto||'')}" placeholder="例: 文武両道"></label></div>`}
 function statusChip(pi,b){if(b&&b.sched&&b.sched.kind==='done')return '<span class="stc ok">復習</span>';if(b&&b.sched&&b.sched.kind==='part'&&pi.status!=='done'){}if(pi.status==='done')return '<span class="stc ok">完了</span>';if(pi.status==='over')return '<span class="stc ng">期限切れ</span>';if(pi.status==='ok')return '<span class="stc ok">順調</span>';if(pi.status==='behind')return '<span class="stc ng">ペース不足</span>';return ''}
-function pbookHTML(b){const pi=planInfo(b),sc=b.sched,tot=b.total,pos=bookProgress(b),pre=b.unit==='ページ'?'p.':'';
+function pbookHTML(b){const pi=planInfo(b),sc=b.sched,tot=b.total,pos=shownPos(b),pre=b.unit==='ページ'?'p.':'';
       const rvOnly=sc&&sc.kind==='done',uc=unitCounts(b),um=!rvOnly&&sc&&bNm(b)==='unit',tm=!rvOnly&&sc&&sc.nm==='time';const line1=rvOnly?`既習・${(genBook(b,todayKey()).base)||''}`:um?`単元 ${uc.d} / ${uc.n} 済・残り ${uc.n-uc.d-(sc.kind==='part'?bUnits(b).filter(u=>!unitDone(b,u.id)&&unitLearned(b,u.id)).length:0)}単元`:tm?`時間で計画（${(sc.nt||{}).mode==='total'?`合計 ${(sc.nt||{}).hours||0}時間`:`毎日 ${fmtMin(+(sc.nt||{}).min||0)}`}）`:tot?`${b.mode==='range'?`${pre}${pos} / ${tot}${b.unit==='ページ'?'':b.unit}`:`${pos} / ${tot}${b.unit}`}・残り ${uAmt(b,pi.rem)}`:'全体の量が未設定';
       const parts=rvOnly?[pi.tgt?`期限 ${md(pi.tgt)}`:'']:[pi.pace?`最近の実績 1日 ${uAmt(b,pi.pace)}`:'最近の記録なし',pi.eta&&pi.rem?`このままだと ${md(pi.eta)} 完了`:'',pi.tgt?`期限 ${md(pi.tgt)}${pi.need!=null&&pi.rem?`（残り÷期限までの学習日＝1日 ${pi.need===Infinity?'—':uAmt(b,pi.need)}）`:''}`:''].filter(Boolean);
       return `<button class="pbook" data-bplan="${b.id}">${coverHTML(b,'cover sm')}<span class="pbm"><b>${esc(b.title)}</b><small>${line1}</small><span class="bar"><i style="width:${um?(uc.n?uc.d/uc.n*100:0):tot?Math.min(100,pos/tot*100):0}%;background:${bookColor(b)}"></i></span><small>${(um||tm)?(pi.tgt?`期限 ${md(pi.tgt)}`:''):parts.join('・')}</small>
@@ -3895,7 +3895,7 @@ function renderPlanner(){const [from,to]=plRange(),today=todayKey(),items=planIt
     h+=`<div class="pweek"><div class="pwh"><b>${md(w)}〜${md(we)}</b><input data-theme="${w}" value="${esc(th)}" maxlength="60" placeholder="この週のテーマ（任意）"></div>`;
     for(let d=w;d<=we;d=addDays(d,1)){const es=items[d]||[],ev=eventsOn(d),cap=capOn(d),ld=loadOf(d,es),over=cap!=null&&ld>cap+1;
       h+=`<div class="pday${d===today?' today':''}${d<today?' past':''}${dayType(d)==='off'?' off':''}" data-pday="${d}"><div class="pdh"><span class="pdn">○${mdw(d)}</span>${ev.map(e=>`<span class="evt ${e.type}">${esc(e.title)}${e.type!=='note'?'・'+EVT[e.type]:''}</span>`).join('')}
-        <span class="pcap${over?' over':''}">${cap===0?(ld?'勉強しない日に予定あり':''):`${ld||cap!=null?`約${fmtHM(ld)}${cap!=null?` / ${fmtHM(cap)}`:''}`:''}${over?' 多すぎ':''}${ld&&d>=today&&dayEst(es)?' 見積もり中':''}${es.some(e=>e.kind==='rt'&&!e.done&&!(+e.min))?'（時間の目安がない定番は含みません）':''}`}</span><button class="ia" data-padd="${d}" aria-label="${mdw(d)}に追加" title="この日に追加" style="opacity:1">＋</button></div>
+        <span class="pcap${over?' over':''}">${cap===0?(ld?'勉強しない日に予定あり':''):`${ld||cap!=null?`${ld>1440?'24時間を超えています（多すぎる日をならしてください）':'約'+fmtHM(ld)}${cap!=null?` / ${fmtHM(cap)}`:''}`:''}${over?' 多すぎ':''}${ld&&d>=today&&dayEst(es)?' 見積もり中':''}${es.some(e=>e.kind==='rt'&&!e.done&&!(+e.min))?'（時間の目安がない定番は含みません）':''}`}</span><button class="ia" data-padd="${d}" aria-label="${mdw(d)}に追加" title="この日に追加" style="opacity:1">＋</button></div>
         <div class="pitems">${es.length?es.map(e=>pitemHTML(e)).join(''):'<span class="pnone">—</span>'}</div></div>`}
     h+='</div>'}
   $('#pl-week').innerHTML=h}
@@ -4111,7 +4111,7 @@ function openGen(){const bs=st.books.filter(b=>b.status==='active'&&b.sched);if(
     $('#gn_list').addEventListener('change',e=>{const c=e.target.closest('.gn_b');if(!c)return;if(c.checked)pick.add(c.value);else pick.delete(c.value);warn()});
     $('#gn_go').onclick=()=>{const ids=$$('.gn_b').filter(c=>c.checked).map(c=>c.value);if(!ids.length){toast(Object.values(res).every(r=>r.err)?'どの教材も作れません。⚠ の「設定する」から直してください':'作る教材にチェックを入れてください');return}
       if(!window.__gnOk){const today=todayKey(),oldAll=st.tasks.filter(t=>t.source==='plan'&&ids.includes(t.planBook)&&!t.completed),lateN=oldAll.filter(t=>t.due&&t.due<today).length,per={};ids.forEach(id=>((res[id]&&res[id].tasks)||[]).forEach(t=>{if(t.due)per[t.due]=(per[t.due]||0)+taskMin(t)}));const big=Object.entries(per).filter(([d,m])=>m>=360).sort((a,c)=>c[1]-a[1]);
-        if(oldAll.length||big.length){confirmBox(`${oldAll.length?`終わっていない計画のタスク ${oldAll.length}件${lateN?`（うち期限切れ ${lateN}件）`:''}を、新しい予定に置き換えます。${lateN?'期限切れの分は今日以降に配り直し、もとの日には「できなかった」の印が残ります。':''}`:''}${big.length?`1日 約${fmtHM(big[0][1])}になる日があります（${big.slice(0,3).map(([d])=>md(d)).join('・')}${big.length>3?' ほか':''}）。教材の「1日の上限」や曜日、使える時間を見直すと減らせます。`:''}このまま作りますか？`,'作る',()=>{window.__gnOk=1;try{$('#gn_go').click()}finally{window.__gnOk=0}});return}}
+        if(oldAll.length||big.length){confirmBox(`${oldAll.length?`終わっていない計画のタスク ${oldAll.length}件${lateN?`（うち期限切れ ${lateN}件）`:''}を、新しい予定に置き換えます。${lateN?'期限切れの分の範囲は、今日以降の予定にまとめて配り直します（1件ずつ移すのではないので、件数は減ることがあります）。もとの日には「できなかった」の印が残ります。':''}`:''}${big.length?`1日 約${fmtHM(big[0][1])}になる日があります（${big.slice(0,3).map(([d])=>md(d)).join('・')}${big.length>3?' ほか':''}）。教材の「1日の上限」や曜日、使える時間を見直すと減らせます。`:''}このまま作りますか？`,'作る',()=>{window.__gnOk=1;try{$('#gn_go').click()}finally{window.__gnOk=0}});return}}
       const snap=snapshot();let n=0,del=0;
       for(const id of ids){const r=res[id];if(!r||r.err)continue;const old=st.tasks.filter(t=>t.source==='plan'&&t.planBook===id&&!t.completed);old.forEach(t=>noteMiss(t,''));del+=old.length;
         if(old.some(t=>t.id===T.taskId)){T.taskId=null;persistT()}st.tasks=st.tasks.filter(t=>!old.includes(t));st.tasks.push(...r.tasks);applySide(book(id),r);markBuf(book(id),start);n+=r.tasks.length}
@@ -4747,6 +4747,14 @@ const libP={};
 function loadLib(k){return libP[k]||(libP[k]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=LIBS[k];s.onload=()=>res();s.onerror=()=>{delete libP[k];rej(new Error('load '+k))};document.head.appendChild(s)}))}
 if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(()=>importSched(true),1200))}
 /*@cloud*/
+function shownPos(b){const p=bookProgress(b);return bkind(b)==='part'&&b.mode==='range'?Math.max(p,+((b.sched&&b.sched.learned)??b.learned)||0):p}
+// #41-11: the "今回の学習を記録" card goes away once it is saved
+document.addEventListener('click',e=>{if(e.target.id==='rc_save'||e.target.id==='rc_rv')setTimeout(()=>{try{renderRecCard()}catch(x){}},0)});
+// #40-2 / #40-5: after the plan's amount or deadline changes, keep the "計画とずれています" note and offer to rebuild
+{const _eb=editBookPlan;editBookPlan=function(id){window.__bpId=id;const b=book(id);window.__bpSig=b&&b.sched?JSON.stringify(b.sched.genSig||genSig(b)):null;return _eb.apply(this,arguments)}}
+document.addEventListener('click',e=>{if(e.target.id!=='bp_save')return;setTimeout(()=>{const b=book(window.__bpId);if(!b||!b.sched||!window.__bpSig||isHand(b))return;if(!/計画を保存しました/.test(($('#toastMsg')||{}).textContent||''))return;
+  if(!st.tasks.some(t=>t.source==='plan'&&t.planBook===b.id&&!t.completed))return;const old=JSON.parse(window.__bpSig);if(JSON.stringify(old)===JSON.stringify(genSig(b)))return;window.__bpSig=null;
+  b.sched.genSig=old;save(true);confirmBox(`「${b.title}」の計画の設定（量・期限など）が変わりました。作ってある予定は前の設定のままです。今の設定で作り直しますか？`,'作り直す',()=>regenBook(b))},80)});
 function lateTxt(b,r){const real=bookTarget(b);if(real&&r.tgt&&r.tgt<real)return `予備日を除いた ${md(r.tgt)} までに終わりません（期限 ${md(real)} には${r.end&&r.end<=real?'間に合います':'間に合いません'}）`;return `期限 ${md(r.tgt||real)} に間に合いません`}
 // #31-2: a deadline in the past is pointed out before saving
 document.addEventListener('change',e=>{if(e.target.id==='bp_target'&&e.target.value&&e.target.value<todayKey()&&+e.target.value.slice(0,4)>=new Date().getFullYear()-1)toast('期限が過去の日付です。日付を確かめてください')});
