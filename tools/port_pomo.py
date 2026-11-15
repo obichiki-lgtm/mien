@@ -628,5 +628,14 @@ document.addEventListener('click',e=>{if(e.target.id==='rc_save'||e.target.id===
 document.addEventListener('click',e=>{if(e.target.id!=='bp_save')return;setTimeout(()=>{const b=book(window.__bpId);if(!b||!b.sched||!window.__bpSig||isHand(b))return;if(!/計画を保存しました/.test(($('#toastMsg')||{}).textContent||''))return;
   if(!st.tasks.some(t=>t.source==='plan'&&t.planBook===b.id&&!t.completed))return;const old=JSON.parse(window.__bpSig);if(JSON.stringify(old)===JSON.stringify(genSig(b)))return;window.__bpSig=null;
   b.sched.genSig=old;save(true);confirmBox(`「${b.title}」の計画の設定（量・期限など）が変わりました。作ってある予定は前の設定のままです。今の設定で作り直しますか？`,'作り直す',()=>regenBook(b))},80)});""")
+# ---- timer items (#36 #37 #38) ----
+# #38: "集中を開始" on the break-over bar asks "何を勉強する？" when the setting is 毎回
+rep("if(S.requireTask==='off'||hasWhat())start(true);else start()};","if(S.requireTask==='off'||(S.requireTask!=='always'&&hasWhat()))start(true);else start()};")
+# #36: Enter in the tag / sub-task field keeps the folded "詳しい設定" open (it looked as if the dialog closed)
+rep("setTimeout(()=>$(id2)&&$(id2).focus())","setTimeout(()=>{const x=$(id2);if(x){const dd=x.closest('details');if(dd)dd.open=true;x.focus()}})")
+# #36: if the focus ends while "切り替えますか？" is open, switching does not skip the break
+rep("'記録して切り替える',()=>{go2();if(!T.running)start(true)});return}","'記録して切り替える',()=>{if(T.mode!=='focus'){if(kind==='task'){useTask(id,false);toast('集中が先に終わったので、休憩のあとの集中をこのタスクで始めます')}else toast('集中が先に終わりました。休憩のあとで選び直してください');return}go2();if(!T.running)start(true)});return}")
+# #37: the record card says which task it was, and that a task without a book records as "教材なし"
+rep('<label class="f">教材<select id="${p}_book">','${tk?`<div class="muted" style="font-size:12.5px">タスク：<b>${esc(tk.title)}</b>${!s.book?\'（教材に結びついていないタスクです。教材を選ぶと、その教材の進み具合に入ります）\':\'\'}</div>`:\'\'}\n    <label class="f">教材<select id="${p}_book">')
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
