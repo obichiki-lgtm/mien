@@ -2330,9 +2330,9 @@ function tcGInfo(e,mode){const it=e.kind==='task'?taskById(e.id):e.kind==='revie
 function tcRows(k,es,lim){const mode=S.calGroup||'none',min=+S.calGroupMin||4;
   if(mode==='none'||es.length<min){const h=es.slice(0,lim).map(tcChipH).join('');return h+(es.length>lim?`<span class="cmore">ほか${es.length-lim}件</span>`:'')}
   const gs=new Map();es.forEach(e=>{const g=tcGInfo(e,mode);if(!gs.has(g.k))gs.set(g.k,Object.assign(g,{es:[]}));gs.get(g.k).es.push(e)});
-  const arr=[...gs.values()];let h='';arr.slice(0,lim).forEach(g=>{const id=k+'|'+g.k,op=tcOpenG.has(id),open=g.es.filter(e=>!e.done),dn=g.es.length-open.length;
+  const arr=[...gs.values()];let h='';arr.slice(0,lim).forEach(g=>{const id=k+'|'+g.k,op=tcOpenG.has(id),open=g.es.filter(e=>!e.done),dn=g.es.length-open.length,cnt=open.filter(e=>!e.proj||e.repProj).length,pj=open.length-cnt;
     const mins=open.reduce((a,e)=>a+(e.kind==='task'&&taskById(e.id)?taskMin(taskById(e.id)):e.kind==='review'?rvMin():(+e.min||0)),0);
-    h+=`<span class="cgrp${op?' open':''}" data-cg="${esc(id)}" role="button" aria-expanded="${op}" title="${esc(g.lb)}：${g.es.length}件（タップで${op?'閉じる':'広げる'}）"><i style="background:${g.col}"></i><span class="gl">${esc(g.lb)} ${g.es.length}件${dn?`（済${dn}）`:''}${mins>=1?` ${fmtHM(mins)}`:''}</span><span class="gs">${esc([...g.lb][0]||'')}${g.es.length}</span><b>${op?'▾':'▸'}</b></span>`;
+    h+=`<span class="cgrp${op?' open':''}" data-cg="${esc(id)}" role="button" aria-expanded="${op}" title="${esc(g.lb)}：${g.es.length}件（タップで${op?'閉じる':'広げる'}）"><i style="background:${g.col}"></i><span class="gl">${esc(g.lb)} ${cnt}件${dn||pj?`（${[dn?'済'+dn:'',pj?'仮'+pj:''].filter(Boolean).join('・')}）`:''}${mins>=1?` ${fmtHM(mins)}`:''}</span><span class="gs">${esc([...g.lb][0]||'')}${cnt}</span><b>${op?'▾':'▸'}</b></span>`;
     if(op)h+=`<span class="cgin">${g.es.map(tcChipH).join('')}</span>`});
   return h+(arr.length>lim?`<span class="cmore">ほか${arr.length-lim}種類</span>`:'')}
 function renderTaskCal(){const sm=tcSmall();tcWasSmall=sm+'|'+(window.innerWidth>=1200);const [y,mo]=tcMonth.split('-').map(Number),first=new Date(y,mo-1,1),off=(first.getDay()+6)%7,today=todayKey();
@@ -2363,7 +2363,7 @@ function renderTcDay(){const k=tcSel,today=todayKey(),es=(tcEntries(k,k)[k]||[])
       <span class="ty ${e.ty}">${TYL[e.ty]}</span><div class="tx" data-open="${e.kind}:${e.id}"><div>${esc(e.title)}</div>${sub.length?`<em>${sub.join('・')}</em>`:''}</div>
       <span style="display:flex;gap:2px">${(e.repProj||(e.real&&e.kind==='task'&&e.rep))?`<button class="ia" data-occ="${e.id}|${e.repProj?k:(e.late?today:taskById(e.id).due)}" title="繰り返しの予定を編集" aria-label="繰り返しの予定を編集" style="opacity:1">↻</button>`:''}${e.real?`<button class="ia" data-do="${e.key}" title="${e.kind==='review'?'復習して評価':'完了'}" aria-label="完了" style="opacity:1">${ICON.check.replace('stroke-width="3.5"','stroke-width="2.5" width="16" height="16"')}</button>`:''}</span></div>`};
   const n=tcPicked.size;
-  $('#tcDay').innerHTML=`<div class="ph"><h2>${fmtDay(k,true)}${k===today?'（今日）':''}</h2><span style="display:flex;gap:8px;align-items:center"><small>${real.length+reps.length+rts.length}件の予定${proj.length?`・仮 ${proj.length}`:''}${evs.length?'・'+esc(evs.map(v=>v.title).join('・')):''}${goalsOn(k).length?'・◎'+esc(goalsOn(k).map(g=>g.title).join('・')):''}</small><button class="btn sm" id="tcDayClose">閉じる</button></span></div>
+  $('#tcDay').innerHTML=`<div class="ph"><h2>${fmtDay(k,true)}${k===today?'（今日）':''}</h2><span style="display:flex;gap:8px;align-items:center"><small>${[...real,...reps].filter(e=>!e.done).length+rts.filter(r=>!r.done).length}件の予定${(()=>{const n=es.filter(e=>e.done).length+rts.filter(r=>r.done).length;return n?`・済 ${n}`:''})()}${proj.length?`・仮 ${proj.length}`:''}${evs.length?'・'+esc(evs.map(v=>v.title).join('・')):''}${goalsOn(k).length?'・◎'+esc(goalsOn(k).map(g=>g.title).join('・')):''}</small><button class="btn sm" id="tcDayClose">閉じる</button></span></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button class="btn sm" data-addk="t">＋ タスク</button><button class="btn sm" data-addk="s">＋ 学習</button><button class="btn sm" data-addk="r">＋ 復習</button><button class="btn sm" data-addk="ev">＋ 特別な日</button>${real.length?`<button class="btn sm" id="tcMoveDay" style="margin-left:auto">この日の予定をまとめて移動</button>`:''}</div>
     ${real.length?`<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);padding:4px"><span>予定</span><button class="btn sm" id="tcAll" style="padding:2px 8px">${real.every(e=>tcPicked.has(e.key))?'選択を解除':'すべて選択'}</button></div>${real.map(row).join('')}`:(reps.length||proj.length||rts.length||evs.length||goalsOn(k).length)?'':'<div class="empty" style="padding:10px 0">この日の予定はありません</div>'}
     ${reps.length?`<div style="font-size:12px;color:var(--muted);padding:10px 4px 2px">繰り返しの予定（その日になると「今日」に出ます。日程を変えるときは名前をタップ）</div>${reps.map(row).join('')}`:''}
@@ -2596,7 +2596,7 @@ function renderTasks(){
   const tl=sortTasks(st.tasks.filter(t=>inList(t,'today'))).reduce((a,t)=>a+Math.max(0,t.est-t.done),0);$('#todaySum').textContent=tl?`今日 残り ${tl} ポモ（約${fmtMin(tl*S.focus)}）`:'';
   bindList(ul);
   const open=list.filter(t=>!t.completed),est=open.reduce((a,t)=>a+Math.max(0,t.est-t.done),0);
-  $('#listSum').innerHTML=(open.length?`<span>未完了 ${open.length} 件・残り見積 ${est} ポモ（約${fmtMin(est*S.focus)}）</span>`:'<span></span>')+(curList==='done'&&!query&&list.length?'<button class="btn danger sm" id="bulkDel">完了済みをすべて削除</button>':'');
+  $('#listSum').innerHTML=(open.length||rvs.length?`<span>未完了 ${open.length+rvs.length} 件${rvs.length?`（うち復習 ${rvs.length}件）`:''}・残り見積 ${est} ポモ（約${fmtMin(est*S.focus)}）</span>`:'<span></span>')+(curList==='done'&&!query&&list.length?'<button class="btn danger sm" id="bulkDel">完了済みをすべて削除</button>':'');
   const bd=$('#bulkDel');if(bd)bd.onclick=()=>{const n=st.tasks.filter(t=>t.completed).length;confirmBox(`完了済みのタスク ${n} 件をすべて削除しますか？学習の記録は残ります。`,'削除',()=>{st.tasks=st.tasks.filter(t=>!t.completed);save();toast(`${n}件を削除しました`)})};
 }
 let tKind=LS.get('tkind','all');
@@ -3100,7 +3100,7 @@ function openDandori(auto,mode){mode=mode||ddMode();const today=todayKey(),day=m
   const late=mode==='today'?lateTasks():[],lateRv=mode==='today'?st.reviews.filter(r=>!r.paused&&r.due&&r.due<today).length:0,bd=nextBufDays(null,today,1,true)[0],nMin=mode==='today'?st.tasks.filter(t=>!t.completed&&t.minPlan&&t.due===today).length:0;
   openDrawer(`<div class="dh"><h3>${mode==='tomorrow'?'明日の段取り':'今日の段取り'}</h3><button class="btn" id="pclose">閉じる</button></div>
     <div class="seg" id="dd_mode"><button type="button" data-m="today" aria-pressed="${mode==='today'}">今日（${mdw(today)}）</button><button type="button" data-m="tomorrow" aria-pressed="${mode==='tomorrow'}">明日（${mdw(addDays(today,1))}）</button></div>
-    <p class="gdesc">${mode==='tomorrow'?'前の晩に明日の順番と最初の一歩を決めておくと、朝すぐ取りかかれます。':'何から始めて、何時をメドに終えるかを自分で決めます（10分でOK）。自分で決めた1日は、振り回される1日よりストレスが少なく、はかどります。'}</p>
+    <p class="gdesc">${mode==='tomorrow'?'前の晩に明日の順番と最初の一歩を決めておくと、朝すぐ取りかかれます。':'何から始めて、何時をメドに終えるかを自分で決めます（10分でOK）。自分で決めた1日は、振り回される1日よりストレスが少なく、はかどります。'}</p>${(()=>{const rs=routinesOn(day);return rs.length?`<p class="muted" style="font-size:12px;margin:-4px 0 0">定番の学習 ${rs.length}件（${esc(rs.map(r=>r.title).join('・'))}）は、この一覧には入りません（カレンダーと計画表に出ます）。</p>`:''})()}
     ${isCheat(day)?`<div class="warnbox"><b>${mode==='tomorrow'?'明日':'今日'}はチートデイです</b><div>予定は気にせず休んでOK。デイリーもお休みです。</div></div>`:''}
     ${late.length||lateRv?`<div class="warnbox" id="dd_late"><b>遅れている予定 ${late.length+lateRv}件</b><div>先に立て直すと、段取りに今日の分だけが並びます。</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${late.length&&bd?`<button type="button" class="btn sm accent" data-ddc="buf">週の予備日（${mdw(bd)}）に回す</button>`:''}${late.some(t=>t.source==='plan')?'<button type="button" class="btn sm" data-ddc="redo">残りの日に割り振り直す</button>':''}${stageLateBtns(late,'data-ddc')}<button type="button" class="btn sm" data-ddc="today">今日やる（一覧に入れる）</button></div></div>`:''}
     <div id="dd_list"></div>
@@ -3342,6 +3342,7 @@ function taskMinX(t){if(!isStudy(t))return {m:0,est:false};const p=t.plan,b=book
   if(p&&p.type==='time')return {m:+p.min||0,est:false};const rv=t.planKind==='rv'||!!(p&&p.lap>1);
   if(p&&p.type==='retry'&&b){const ri=rateInfo(b,bNm(b)==='unit'?'ru':'r');return {m:(+p.n||0)*(ri.v||(bNm(b)==='unit'?30:3)),est:ri.est}}
   if(p&&p.type==='units'&&b){const ids=p.ids||[],pg=unitsPages(b,ids),ra=pg?rateInfo(b,rv?'r':'n'):null;if(pg&&ra&&ra.v&&(!ra.est||ra.me))return {m:pg*ra.v,est:ra.est};const ru=rateInfo(b,rv?'ru':'nu');return {m:ids.length*(ru.v||30),est:ru.est}}
+  if(p&&b&&(b.unit==='分'||b.unit==='時間')&&(p.type==='range'||p.type==='amount')){const a=p.type==='range'?p.to-p.from+1:+p.amt||0;return {m:a*(b.unit==='時間'?60:1),est:false}}
   if(p&&b){const ri=rateInfo(b,rv?'r':'n');if(ri.v){const a=p.type==='range'?p.to-p.from+1:+p.amt||0;return {m:a*ri.v,est:ri.est}}return {m:(t.est||1)*S.focus,est:true}}
   return {m:(t.est||1)*S.focus,est:false}}
 function taskMin(t){return taskMinX(t).m}
@@ -3495,7 +3496,7 @@ function rvLevelPlan(dry){const today=todayKey(),to=addDays(today,13),load={},L=
 function planCheckHTML(){const today=todayKey();if(LS.get('pcAck','')===today)return '';const rows=[],row=(t,sub,btns)=>`<div class="pcrow"><div><b>${t}</b>${sub?`<small>${sub}</small>`:''}</div><div class="latebtns">${btns}</div></div>`;
   goalsToClose().forEach(g=>rows.push(row(`目標の日を過ぎました：${esc(g.title)}（${md(g.due)}）`,'結果の記録・振り返り・残った予定と教材の後片付けをまとめてできます',`<button class="btn sm accent" data-pc="close:${g.id}">締めくくる</button>`)));
   const late=lateTasks();if(late.length&&LS.get('lateAck','')!==today){const pl=late.filter(t=>t.source==='plan').length,bd=nextBufDays(null,today,1,true)[0];
-    rows.push(row(`遅れている予定 ${late.length}件`,(pl?`うち計画のタスク ${pl}件`:'')+(bd?`・次の予備日（${md(bd)}）の空き 約${fmtMin(Math.max(0,bufRoom(bd)))}`:'・近くの予備日に空きがありません'),`${bd?`<button class="btn sm accent" data-catch="buf">週の予備日（${mdw(bd)}）に回す</button>`:''}${pl?`<button class="btn sm" data-catch="redo">残りの日に割り振り直す</button><button class="btn sm" data-catch="shift">全部を後ろへずらす</button>`:''}${stageLateBtns(late,'data-catch')}<button class="btn sm" data-catch="today">今日まとめてやる</button>`))}
+    rows.push(row(`遅れている予定 ${late.length+lateRvN()}件${lateRvN()?`（うち復習 ${lateRvN()}件）`:''}`,(pl?`うち計画のタスク ${pl}件`:'')+(bd?`・次の予備日（${md(bd)}）の空き 約${fmtMin(Math.max(0,bufRoom(bd)))}`:'・近くの予備日に空きがありません'),`${bd?`<button class="btn sm accent" data-catch="buf">週の予備日（${mdw(bd)}）に回す</button>`:''}${pl?`<button class="btn sm" data-catch="redo">残りの日に割り振り直す</button><button class="btn sm" data-catch="shift">全部を後ろへずらす</button>`:''}${stageLateBtns(late,'data-catch')}<button class="btn sm" data-catch="today">今日まとめてやる</button>`))}
   st.books.filter(b=>b.status==='active'&&b.sched).forEach(b=>{const a=aheadInfo(b);if(a)rows.push(row('予定より先に進んでいます',esc(aheadText(b,a)),`<button class="btn sm accent" data-pc="pull:${b.id}">前に寄せる</button><button class="btn sm" data-pc="keep:${b.id}">そのまま（予備を増やす）</button>`))});
   const ov=offOverlaps(today,addDays(today,90));if(ov.length)rows.push(row(`勉強しない日に入っている予定 ${ov.length}件`,[...new Set(ov.map(t=>t.due))].sort().slice(0,6).map(md).join('・'),`<button class="btn sm accent" data-pc="offshift">後ろへずらす</button><button class="btn sm" data-pc="offbuf">週の予備日に回す</button>`));
   st.books.filter(b=>b.status==='active'&&b.sched&&!b.sched.genSig&&st.tasks.some(t=>t.source==='plan'&&t.planBook===b.id&&!t.completed)).forEach(b=>{b.sched.genSig=genSig(b);save(true)});
@@ -3528,7 +3529,7 @@ function planCheckAct(v){const [k,id]=v.split(':'),b=id?book(id):null;
   if(k==='sig'&&b){b.sched.genSig=genSig(b);save();return}
   if(k==='level'){plMode='make';renderPlan();levelPlan();setTimeout(()=>$('#pl-week')&&$('#pl-week').scrollIntoView({behavior:'smooth',block:'start'}),80)}}
 function lateBanner(){const late=lateTasks();if(!late.length||LS.get('lateAck','')===todayKey())return '';const pl=late.filter(t=>t.source==='plan').length;
-  return `<div class="latebar"><div><b>遅れている予定 ${late.length}件</b><small>${pl?`うち計画のタスク ${pl}件。`:''}どうしますか？（あとから「元に戻す」もできます）</small></div><div class="latebtns">${(()=>{const bd=nextBufDays(null,todayKey(),1,true)[0];return bd?`<button class="btn sm accent" data-catch="buf">週の予備日（${mdw(bd)}）に回す</button>`:''})()}${pl?`<button class="btn sm${nextBufDays(null,todayKey(),1).length?'':' accent'}" data-catch="redo">残りの日に割り振り直す</button><button class="btn sm" data-catch="shift">全部を後ろへずらす</button>`:''}${stageLateBtns(late,'data-catch')}<button class="btn sm" data-catch="today">今日まとめてやる</button></div></div>`}
+  return `<div class="latebar"><div><b>遅れている予定 ${late.length+lateRvN()}件${lateRvN()?`（うち復習 ${lateRvN()}件）`:''}</b><small>${pl?`うち計画のタスク ${pl}件。`:''}どうしますか？（あとから「元に戻す」もできます）</small></div><div class="latebtns">${(()=>{const bd=nextBufDays(null,todayKey(),1,true)[0];return bd?`<button class="btn sm accent" data-catch="buf">週の予備日（${mdw(bd)}）に回す</button>`:''})()}${pl?`<button class="btn sm${nextBufDays(null,todayKey(),1).length?'':' accent'}" data-catch="redo">残りの日に割り振り直す</button><button class="btn sm" data-catch="shift">全部を後ろへずらす</button>`:''}${stageLateBtns(late,'data-catch')}<button class="btn sm" data-catch="today">今日まとめてやる</button></div></div>`}
 /* leveling: move overloaded plan items to later days with room (draft) */
 function levelPlan(){const [from,to]=plRange(),today=todayKey(),items=planItems(from,to,true);let moved=0;
   const load={},cap={};for(let d=from;d<=to;d=addDays(d,1)){load[d]=loadOf(d,items[d]||[]);cap[d]=capOn(d)}
@@ -3894,7 +3895,7 @@ function renderPlanner(){const [from,to]=plRange(),today=todayKey(),items=planIt
   if(n)h+=`<div class="draftbar"><b>未確定の変更 ${n}件<small style="display:block;font-weight:400;font-size:11.5px;color:var(--muted)">「確定」でカレンダーと今日のリストに反映、「取り消す」で元に戻ります</small></b><span style="display:flex;gap:6px"><button class="btn sm" id="pdUndo">変更を取り消す</button><button class="btn sm accent" id="pdApply">確定</button></span></div>`;
   for(let w=from;w<=to;w=addDays(w,7)){const we=addDays(w,6),th=(st.plan.themes||{})[w]||'';
     h+=`<div class="pweek"><div class="pwh"><b>${md(w)}〜${md(we)}</b><input data-theme="${w}" value="${esc(th)}" maxlength="60" placeholder="この週のテーマ（任意）"></div>`;
-    for(let d=w;d<=we;d=addDays(d,1)){const es=items[d]||[],ev=eventsOn(d),cap=capOn(d),ld=loadOf(d,es),over=cap!=null&&ld>cap+1;
+    for(let d=w;d<=we;d=addDays(d,1)){const es=items[d]||[],ev=eventsOn(d),cap=capOn(d),ld=planMin(d,es),over=cap!=null&&ld>cap+1;
       h+=`<div class="pday${d===today?' today':''}${d<today?' past':''}${dayType(d)==='off'?' off':''}" data-pday="${d}"><div class="pdh"><span class="pdn">○${mdw(d)}</span>${ev.map(e=>`<span class="evt ${e.type}">${esc(e.title)}${e.type!=='note'?'・'+EVT[e.type]:''}</span>`).join('')}
         <span class="pcap${over?' over':''}">${cap===0?(ld?'勉強しない日に予定あり':''):`${ld||cap!=null?`${ld>1440?'24時間を超えています（多すぎる日をならしてください）':'約'+fmtHM(ld)}${cap!=null?` / ${fmtHM(cap)}`:''}`:''}${over?' 多すぎ':''}${ld&&d>=today&&dayEst(es)?' 見積もり中':''}${es.some(e=>e.kind==='rt'&&!e.done&&!(+e.min))?'（時間の目安がない定番は含みません）':''}`}</span><button class="ia" data-padd="${d}" aria-label="${mdw(d)}に追加" title="この日に追加" style="opacity:1">＋</button></div>
         <div class="pitems">${es.length?es.map(e=>pitemHTML(e)).join(''):'<span class="pnone">—</span>'}</div></div>`}
@@ -4748,6 +4749,7 @@ const libP={};
 function loadLib(k){return libP[k]||(libP[k]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=LIBS[k];s.onload=()=>res();s.onerror=()=>{delete libP[k];rej(new Error('load '+k))};document.head.appendChild(s)}))}
 if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(()=>importSched(true),1200))}
 /*@cloud*/
+function lateRvN(){const t=todayKey();return (st.reviews||[]).filter(r=>!r.paused&&r.due&&r.due<t).length}
 function shownPos(b){const p=bookProgress(b);return bkind(b)==='part'&&b.mode==='range'?Math.max(p,+((b.sched&&b.sched.learned)??b.learned)||0):p}
 // #41-11: the "今回の学習を記録" card goes away once it is saved
 document.addEventListener('click',e=>{if(e.target.id==='rc_save'||e.target.id==='rc_rv')setTimeout(()=>{try{renderRecCard()}catch(x){}},0)});
@@ -4766,7 +4768,7 @@ document.addEventListener('click',e=>{if(e.target.id!=='d_tomorrow')return;const
   const prev=t.due,nd=addDays(todayKey(),1);t.due=nd;closeDrawer();save();toast(`明日（${mdw(nd)}）へ移しました`,'元に戻す',()=>{t.due=prev;save()})});
 // #28-2: overdue tasks can be moved to today in one go from the today list
 {const _rt=renderTasks;renderTasks=function(){_rt.apply(this,arguments);try{if(curList!=='today'||query)return;const od=st.tasks.filter(t=>isOverdue(t)&&(!t.repeat||t.repeat==='none'));if(!od.length)return;
-  $('#taskList').insertAdjacentHTML('afterbegin',`<li class="grp" style="display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--pri1)"><span>期限切れ ${od.length}件</span><span style="display:flex;gap:6px"><button class="btn sm" data-odmv="0">まとめて今日へ</button><button class="btn sm" data-odmv="1">まとめて明日へ</button></span></li>`)}catch(x){}}}
+  $('#taskList').insertAdjacentHTML('afterbegin',`<li class="grp" style="display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--pri1)"><span>期限切れ ${od.length}件${lateRvN()?`・遅れている復習 ${lateRvN()}件（復習は一覧の「復習」から）`:''}</span><span style="display:flex;gap:6px"><button class="btn sm" data-odmv="0">まとめて今日へ</button><button class="btn sm" data-odmv="1">まとめて明日へ</button></span></li>`)}catch(x){}}}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-odmv]');if(!b)return;const od=st.tasks.filter(t=>isOverdue(t)&&(!t.repeat||t.repeat==='none'));if(!od.length)return;const snap=od.map(t=>[t,t.due]),nd=addDays(todayKey(),+b.dataset.odmv);
   od.forEach(t=>{noteMiss(t,nd);t.due=nd});save();toast(`期限切れ ${od.length}件を${+b.dataset.odmv?'明日':'今日'}へ移しました`,'元に戻す',()=>{snap.forEach(([t,d])=>t.due=d);save()})});
 const _dt={k:-1,m:new Map()};
