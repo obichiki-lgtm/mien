@@ -637,5 +637,25 @@ rep("setTimeout(()=>$(id2)&&$(id2).focus())","setTimeout(()=>{const x=$(id2);if(
 rep("'記録して切り替える',()=>{go2();if(!T.running)start(true)});return}","'記録して切り替える',()=>{if(T.mode!=='focus'){if(kind==='task'){useTask(id,false);toast('集中が先に終わったので、休憩のあとの集中をこのタスクで始めます')}else toast('集中が先に終わりました。休憩のあとで選び直してください');return}go2();if(!T.running)start(true)});return}")
 # #37: the record card says which task it was, and that a task without a book records as "教材なし"
 rep('<label class="f">教材<select id="${p}_book">','${tk?`<div class="muted" style="font-size:12.5px">タスク：<b>${esc(tk.title)}</b>${!s.book?\'（教材に結びついていないタスクです。教材を選ぶと、その教材の進み具合に入ります）\':\'\'}</div>`:\'\'}\n    <label class="f">教材<select id="${p}_book">')
+# ---- counts and times agree between screens (#34-#41) ----
+# Rule: a day's "N件" = not done, not 仮 (projected); done and 仮 are shown separately.
+rep("const id=k+'|'+g.k,op=tcOpenG.has(id),open=g.es.filter(e=>!e.done),dn=g.es.length-open.length;","const id=k+'|'+g.k,op=tcOpenG.has(id),open=g.es.filter(e=>!e.done),dn=g.es.length-open.length,cnt=open.filter(e=>!e.proj||e.repProj).length,pj=open.length-cnt;")
+rep("<span class=\"gl\">${esc(g.lb)} ${g.es.length}件${dn?`（済${dn}）`:''}","<span class=\"gl\">${esc(g.lb)} ${cnt}件${dn||pj?`（${[dn?'済'+dn:'',pj?'仮'+pj:''].filter(Boolean).join('・')}）`:''}")
+rep("<span class=\"gs\">${esc([...g.lb][0]||'')}${g.es.length}</span>","<span class=\"gs\">${esc([...g.lb][0]||'')}${cnt}</span>")
+rep("${real.length+reps.length+rts.length}件の予定","${[...real,...reps].filter(e=>!e.done).length+rts.filter(r=>!r.done).length}件の予定${(()=>{const n=es.filter(e=>e.done).length+rts.filter(r=>r.done).length;return n?`・済 ${n}`:''})()}")
+# the list footer counts the reviews shown in the list too
+rep("$('#listSum').innerHTML=(open.length?`<span>未完了 ${open.length} 件・","$('#listSum').innerHTML=(open.length||rvs.length?`<span>未完了 ${open.length+rvs.length} 件${rvs.length?`（うち復習 ${rvs.length}件）`:''}・")
+# "遅れている予定" = late tasks + late reviews everywhere (段取り already did this)
+rep("rows.push(row(`遅れている予定 ${late.length}件`,","rows.push(row(`遅れている予定 ${late.length+lateRvN()}件${lateRvN()?`（うち復習 ${lateRvN()}件）`:''}`,")
+rep("<b>遅れている予定 ${late.length}件</b><small>","<b>遅れている予定 ${late.length+lateRvN()}件${lateRvN()?`（うち復習 ${lateRvN()}件）`:''}</b><small>")
+rep("<span>期限切れ ${od.length}件</span>","<span>期限切れ ${od.length}件${lateRvN()?`・遅れている復習 ${lateRvN()}件（復習は一覧の「復習」から）`:''}</span>")
+# a day's planned time in the weekly planner is counted like the plan sheet (done included, 仮 excluded)
+rep("cap=capOn(d),ld=loadOf(d,es),over=cap!=null&&ld>cap+1;","cap=capOn(d),ld=planMin(d,es),over=cap!=null&&ld>cap+1;")
+# a book measured in 分/時間: a range of minutes is that many minutes (was guessed as one pomodoro)
+rep("if(p&&b){const ri=rateInfo(b,rv?'r':'n');if(ri.v){","if(p&&b&&(b.unit==='分'||b.unit==='時間')&&(p.type==='range'||p.type==='amount')){const a=p.type==='range'?p.to-p.from+1:+p.amt||0;return {m:a*(b.unit==='時間'?60:1),est:false}}\n  if(p&&b){const ri=rateInfo(b,rv?'r':'n');if(ri.v){")
+# 段取り says which routines are not in its list
+rep("何時をメドに終えるかを自分で決めます（10分でOK）。自分で決めた1日は、振り回される1日よりストレスが少なく、はかどります。'}</p>","何時をメドに終えるかを自分で決めます（10分でOK）。自分で決めた1日は、振り回される1日よりストレスが少なく、はかどります。'}</p>${(()=>{const rs=routinesOn(day);return rs.length?`<p class=\"muted\" style=\"font-size:12px;margin:-4px 0 0\">定番の学習 ${rs.length}件（${esc(rs.map(r=>r.title).join('・'))}）は、この一覧には入りません（カレンダーと計画表に出ます）。</p>`:''})()}")
+rep("""/*@cloud*/""","""/*@cloud*/
+function lateRvN(){const t=todayKey();return (st.reviews||[]).filter(r=>!r.paused&&r.due&&r.due<t).length}""")
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
