@@ -657,5 +657,16 @@ rep("if(p&&b){const ri=rateInfo(b,rv?'r':'n');if(ri.v){","if(p&&b&&(b.unit==='�
 rep("何時をメドに終えるかを自分で決めます（10分でOK）。自分で決めた1日は、振り回される1日よりストレスが少なく、はかどります。'}</p>","何時をメドに終えるかを自分で決めます（10分でOK）。自分で決めた1日は、振り回される1日よりストレスが少なく、はかどります。'}</p>${(()=>{const rs=routinesOn(day);return rs.length?`<p class=\"muted\" style=\"font-size:12px;margin:-4px 0 0\">定番の学習 ${rs.length}件（${esc(rs.map(r=>r.title).join('・'))}）は、この一覧には入りません（カレンダーと計画表に出ます）。</p>`:''})()}")
 rep("""/*@cloud*/""","""/*@cloud*/
 function lateRvN(){const t=todayKey();return (st.reviews||[]).filter(r=>!r.paused&&r.due&&r.due<t).length}""")
+# ---- break overrun never negative (#35 #37) ----
+# a stale "app was hidden at" time from an earlier break is cleared when a new overrun starts
+rep("else{setMode('focus',false);T.overrunSince=endedAt;T.withered=0;T.witherIds=[];persistT();","else{setMode('focus',false);T.overrunSince=endedAt;T.withered=0;T.witherIds=[];T.hiddenAt=0;persistT();")
+# the end of an overrun is never before its start
+rep("function endOverrun(at,o){if(!T.overrunSince)return;o=o||{};const e=at||Date.now(),sec=(e-T.overrunSince)/1000;","function endOverrun(at,o){if(!T.overrunSince)return;o=o||{};const e=Math.max(at||Date.now(),T.overrunSince),sec=(e-T.overrunSince)/1000;")
+rep("const since=T.overrunSince,e=Math.min(T.hiddenAt||now,since+cap,eod,now)","const since=T.overrunSince,e=Math.max(since,Math.min(T.hiddenAt&&T.hiddenAt>=since?T.hiddenAt:now,since+cap,eod,now))")
+rep("""/*@cloud*/""","""/*@cloud*/
+// records saved with a negative overrun are repaired to 0 (and synced)
+function fixNegBreaks(){const now=Date.now(),mks=new Set();for(const mk in months)for(const s of months[mk]||[]){if(s&&s.k==='b'&&((+s.over||0)<0||(s.e&&s.s&&s.e<s.s))){s.over=Math.max(0,+s.over||0);s.pen=Math.max(0,+s.pen||0);if(s.e<s.s)s.e=s.s;s.u=now;mks.add(mk)}}mks.forEach(mk=>{try{saveMonth(mk)}catch(e){}});return mks.size}
+{const _ns=normSessions;normSessions=function(){_ns.apply(this,arguments);try{fixNegBreaks()}catch(e){}}}
+try{fixNegBreaks()}catch(e){}""")
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
