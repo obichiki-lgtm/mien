@@ -1829,7 +1829,7 @@ function rowPlay(kind,id){
   if(cur){if(T.running)userPause();else start(true);return}
   const go2=()=>kind==='task'?useTask(id,true):focusReview(id);
   if(inFocus()){const sec=segSec(),nm=kind==='task'?(taskById(id)||{}).title:(rvById(id)||{}).title;
-    confirmBox(sec>=60?`いまの「${curLabel()}」（${fmtMin(Math.round(sec/60))}）を記録して、「${nm}」に切り替えますか？ タイマーはそのまま続きます。`:`「${nm}」に切り替えますか？（いまの分は1分未満なので記録しません）`,'記録して切り替える',()=>{go2();if(!T.running)start(true)});return}
+    confirmBox(sec>=60?`いまの「${curLabel()}」（${fmtMin(Math.round(sec/60))}）を記録して、「${nm}」に切り替えますか？ タイマーはそのまま続きます。`:`「${nm}」に切り替えますか？（いまの分は1分未満なので記録しません）`,'記録して切り替える',()=>{if(T.mode!=='focus'){if(kind==='task'){useTask(id,false);toast('集中が先に終わったので、休憩のあとの集中をこのタスクで始めます')}else toast('集中が先に終わりました。休憩のあとで選び直してください');return}go2();if(!T.running)start(true)});return}
   go2()}
 /* ✓ on the task being focused: record, complete, then ask what's next (timer keeps going) */
 function rowDone(t){if(!isCurTask(t)){toggleDone(t);return}
@@ -2009,6 +2009,7 @@ function recFields(p,s,o={}){
   const from=s.from??(pl&&pl.type==='range'?(taskProg(tk).next||pl.from):(b&&b.mode==='range'?(b.pos||0)+1:''));
   const d=new Date(s.s||Date.now());const h=Math.floor((s.m||0)/60),mi=(s.m||0)%60;
   return `<div style="display:flex;flex-direction:column;gap:12px">
+    ${tk?`<div class="muted" style="font-size:12.5px">タスク：<b>${esc(tk.title)}</b>${!s.book?'（教材に結びついていないタスクです。教材を選ぶと、その教材の進み具合に入ります）':''}</div>`:''}
     <label class="f">教材<select id="${p}_book"><option value="">教材なし</option>${st.books.filter(x=>x.status!=='done'||x.id===s.book).map(x=>`<option value="${x.id}"${s.book===x.id?' selected':''}>${esc(x.title)}</option>`).join('')}</select></label>
     ${o.noTime?'':`<div class="frow"><label class="f">日付<input type="date" id="${p}_date" value="${d2k(d)}"></label><label class="f">開始時刻<input type="time" id="${p}_time" value="${pad(d.getHours())}:${pad(d.getMinutes())}"></label></div>
     <div class="f">勉強時間<div class="hm"><input type="number" id="${p}_h" min="0" max="23" value="${h}" inputmode="numeric" aria-label="時間">時間<input type="number" id="${p}_mi" min="0" max="59" value="${mi}" inputmode="numeric" aria-label="分">分</div></div>`}
@@ -2121,7 +2122,7 @@ function renderRing(){const bar=$('#ringbar');$('#ringCont').hidden=true;$('#rin
   else if(Ring.kind==='test'){bar.hidden=false;$('#ringTitle').textContent='アラームの試聴中';$('#ringSub').textContent='';$('#ringMain').textContent='止める';$('#ringAlt').hidden=true}
   else bar.hidden=true}
 $('#ringMain').onclick=()=>{if(Ring.kind==='clock'||Ring.kind==='test'){Ring.stop();return}
-  if(S.requireTask==='off'||hasWhat())start(true);else start()};
+  if(S.requireTask==='off'||(S.requireTask!=='always'&&hasWhat()))start(true);else start()};
 function openPomoQuick(){if(isCU()||pane==='alarm')return;const busy=!!(T.running||T.startedAt);
   const ni=(k,lb,mn,mx)=>`<label class="f">${lb}<input type="number" id="q_${k}" min="${mn}" max="${mx}" value="${S[k]}" inputmode="numeric"></label>`;
   openDrawer(`<div class="dh"><h3>ポモドーロの設定</h3><button class="btn" id="pclose">閉じる</button></div>
@@ -2665,7 +2666,7 @@ function openTask(id){const t=taskById(id);if(!t)return;if(isStudy(t))return ope
     $('#d_tostudy').onclick=()=>{t.kind='study';if(t.cycle==='no')t.cycle='maybe';save(true);openStudyTask(t.id)};
     $('#d_notes').oninput=e=>upd(()=>t.notes=e.target.value);
     $('#d_pri').onclick=e=>{const b=e.target.closest('[data-p]');if(b)upd(()=>t.pri=+b.dataset.p,true)};
-    const enter=(id2,fn)=>{$(id2).onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();const v=e.target.value.trim();if(v){upd(()=>fn(v),true);setTimeout(()=>$(id2)&&$(id2).focus())}}}};
+    const enter=(id2,fn)=>{$(id2).onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();const v=e.target.value.trim();if(v){upd(()=>fn(v),true);setTimeout(()=>{const x=$(id2);if(x){const dd=x.closest('details');if(dd)dd.open=true;x.focus()}})}}}};
     enter('#d_sub',v=>t.subs.push({id:nid(),t:v,d:false}));enter('#d_tag',v=>{if(!t.tags.includes(v))t.tags.push(v)});
     $('#drawer').onclick=e=>{const rt=e.target.closest('[data-rmtag]'),rs=e.target.closest('[data-rmsub]');if(rt)upd(()=>t.tags.splice(+rt.dataset.rmtag,1),true);if(rs){e.preventDefault();upd(()=>t.subs=t.subs.filter(s=>s.id!==rs.dataset.rmsub),true)}};
     $('#drawer').onchange=e=>{const c=e.target.closest('[data-sub]');if(c){const s=t.subs.find(x=>x.id===c.dataset.sub);if(s)upd(()=>s.d=c.checked,true)}};
