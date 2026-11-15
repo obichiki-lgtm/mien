@@ -1671,7 +1671,7 @@ function complete(){
     setMode(next,S.autoBreak);if(next==='long')openLongDlg();
   }else{
     if(S.autoFocus){if(soundOn())ringFor(S.alarmBreak,4);vib('Break');toast('休憩終了。次の集中を始めました');setMode('focus',true)}
-    else{setMode('focus',false);T.overrunSince=endedAt;T.withered=0;T.witherIds=[];persistT();
+    else{setMode('focus',false);T.overrunSince=endedAt;T.withered=0;T.witherIds=[];T.hiddenAt=0;persistT();
       vib('Break');if(S.breakNag)Ring.start('break',S.alarmBreak,{crescendo:S.nagCrescendo,maxMin:S.nagMax,vibSkipFirst:true});else if(soundOn())ringFor(S.alarmBreak,5)}}
   checkBadges();renderAll()}
 function finishCU(){const sec=elapsedCU();if(sec<60){toast('1分未満は記録されません');return}complete()}
@@ -1679,7 +1679,7 @@ function resetT(){pause();maybeAbandon();if(T.contPrev)endCont();T.remaining=T.t
 function skipT(){if(isCU()){pause();resetT();return}if(T.mode==='focus'){const nx=((T.cycle+1)%S.interval===0)?'long':'short';guardSwitch('休憩に進みますか？',ab=>{pause();setMode(nx,false,ab)});return}pause();setMode('focus',false)}
 function extend(min){if(isCU())return;T.total+=min*60;if(T.running)T.endAt+=min*60000;else T.remaining+=min*60;T.noticed=false;persistT();renderTimer();toast(`${min}分延長しました`)}
 function overCapSec(){const m=+S.overCap;return S.overCap===0||S.overCap==='0'?Infinity:(m||60)*60}
-function endOverrun(at,o){if(!T.overrunSince)return;o=o||{};const e=at||Date.now(),sec=(e-T.overrunSince)/1000;
+function endOverrun(at,o){if(!T.overrunSince)return;o=o||{};const e=Math.max(at||Date.now(),T.overrunSince),sec=(e-T.overrunSince)/1000;
   penaltyTick(e);const wt=T.withered||0;
   addSession({id:o.id||nid(),k:'b',s:T.overrunSince,e,over:Math.round(sec),u:Date.now(),wt,pen:Math.round(penSec(sec)),from:T.brkFrom||undefined,sid:T.brkSess||undefined,wids:(T.witherIds||[]).length?(T.witherIds||[]).slice():undefined});T.overrunSince=0;T.withered=0;T.witherIds=[];if(Ring.kind==='break')Ring.stop();persistT();renderRing();
   if(sec>=60&&!o.quiet)toast(`休憩を ${fmtMin(sec/60)} 超過していました${wt?`（木が ${wt} 本枯れました）`:''}`)}
@@ -1763,7 +1763,7 @@ document.addEventListener('visibilitychange',()=>{if(!T.overrunSince)return;if(d
 window.addEventListener('pagehide',()=>{if(T.overrunSince&&!T.hiddenAt){T.hiddenAt=Date.now();persistT()}});
 function overCapCheck(boot){if(!T.overrunSince)return false;const now=Date.now(),cap=overCapSec()*1000,eod=k2d(addDays(dayKey(T.overrunSince),1)).getTime()+(S.dayStart||0)*3600e3;
   if(now-T.overrunSince<cap&&now<eod)return false;
-  if(boot===true||T.hiddenAt){const since=T.overrunSince,e=Math.min(T.hiddenAt||now,since+cap,eod,now),allowed=penWant((e-since)/1000),ids=(T.witherIds||[]).slice(allowed),mins=Math.round((e-since)/60000);
+  if(boot===true||T.hiddenAt){const since=T.overrunSince,e=Math.max(since,Math.min(T.hiddenAt&&T.hiddenAt>=since?T.hiddenAt:now,since+cap,eod,now)),allowed=penWant((e-since)/1000),ids=(T.witherIds||[]).slice(allowed),mins=Math.round((e-since)/60000);
     ids.forEach(id=>{const g=findSession(id);if(g){g.s.wither=false;g.s.u=Date.now();saveMonth(g.mk)}});T.witherIds=(T.witherIds||[]).slice(0,allowed);T.withered=Math.min(T.withered||0,allowed);
     const bid=nid();endOverrun(e,{quiet:true,id:bid});T.hiddenAt=0;T.cycle=0;T.setStart=0;T.brkFrom=0;T.brkSess=null;persistT();Ring.stop();renderAll();if(mins>=1)setTimeout(()=>toast(`アプリを閉じていたので、セットを終了しました（休憩の超過 ${mins}分として記録）`,'勉強していた',()=>openAwayDlg(bid,true)),500);return true}const e=Math.min(now,T.overrunSince+cap,eod),sid=nid(),ids=(T.witherIds||[]).slice(),mins=Math.round((e-T.overrunSince)/60000);
   endOverrun(e,{id:sid,quiet:true});T.hiddenAt=0;pause&&T.running&&pause();T.cycle=0;T.setStart=0;T.brkFrom=0;T.brkSess=null;persistT();Ring.stop();renderAll();
@@ -4749,6 +4749,10 @@ const libP={};
 function loadLib(k){return libP[k]||(libP[k]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=LIBS[k];s.onload=()=>res();s.onerror=()=>{delete libP[k];rej(new Error('load '+k))};document.head.appendChild(s)}))}
 if(window.PomoCloud&&new URLSearchParams(location.search).get('import')==='sched'){history.replaceState(null,'',location.pathname);PomoCloud.ready.then(()=>setTimeout(()=>importSched(true),1200))}
 /*@cloud*/
+// records saved with a negative overrun are repaired to 0 (and synced)
+function fixNegBreaks(){const now=Date.now(),mks=new Set();for(const mk in months)for(const s of months[mk]||[]){if(s&&s.k==='b'&&((+s.over||0)<0||(s.e&&s.s&&s.e<s.s))){s.over=Math.max(0,+s.over||0);s.pen=Math.max(0,+s.pen||0);if(s.e<s.s)s.e=s.s;s.u=now;mks.add(mk)}}mks.forEach(mk=>{try{saveMonth(mk)}catch(e){}});return mks.size}
+{const _ns=normSessions;normSessions=function(){_ns.apply(this,arguments);try{fixNegBreaks()}catch(e){}}}
+try{fixNegBreaks()}catch(e){}
 function lateRvN(){const t=todayKey();return (st.reviews||[]).filter(r=>!r.paused&&r.due&&r.due<t).length}
 function shownPos(b){const p=bookProgress(b);return bkind(b)==='part'&&b.mode==='range'?Math.max(p,+((b.sched&&b.sched.learned)??b.learned)||0):p}
 // #41-11: the "今回の学習を記録" card goes away once it is saved
