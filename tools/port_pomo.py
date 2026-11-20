@@ -497,7 +497,7 @@ rep("$('#e_save').onclick=()=>{const n=$('#e_title').value.trim();if(!n){toast('
 rep("<option value=\"${x.id}\"${sc.after===x.id?' selected':''}>「${esc(x.title)}」が終わってから始める</option>","<option value=\"${x.id}\"${sc.after===x.id?' selected':''}>「${esc(x.title)}」${ch.some(y=>y!==x&&y.title===x.title)?`（${esc(((subj(x.subject)||{}).name)||'科目なし')}・${(x.id||'').slice(-4)}）`:''}が終わってから始める</option>")
 # #25-12: why no new range lands on the last study day of the week; why auto == even
 rep("'この教材では、3つとも同じ配り方になります'","(capOn0()?'この教材では、3つとも同じ配り方になります':'今は3つとも同じ配り方です。使える時間（計画の「3 使える時間・予定」）を曜日ごとに入れると、「自動」は時間の多い曜日に多く配ります')")
-rep("$('#bp_prev').innerHTML=r.err?r.err:`${gs0===todayKey()?'今日':md(gs0)+'（18時以降は翌日）'}から作ると: ${genText(tmp,r)}","$('#bp_prev').innerHTML=r.err?r.err:`${gs0===todayKey()?'今日':md(gs0)+'（18時以降は翌日）'}から作ると: ${genText(tmp,r)}${!stageMode(tmp)&&bufOf(tmp).week>0?`<br><small class=\"muted\">毎週の予備日（週バッファー ${bufOf(tmp).week}%）として、週の最後の勉強日（月曜始まりなので、ふつうは日曜）には新しい範囲を入れません。遅れの取り戻しに使う日です。毎日入れたいときは、細かい設定の週バッファーを 0 にします。</small>`:''}")
+rep("$('#bp_prev').innerHTML=r.err?r.err:`${gs0===todayKey()?'今日':md(gs0)+'（18時以降は翌日）'}から作ると: ${genText(tmp,r)}","$('#bp_prev').innerHTML=r.err?r.err:`${gs0===todayKey()?'今日':md(gs0)+'（18時以降は翌日）'}から作ると: ${genText(tmp,r)}${!stageMode(tmp)&&bufOf(tmp).week>0?`<br><small class=\"muted\">毎週の予備日（週バッファー ${bufOf(tmp).week}%）として、週の最後の勉強日（この教材では ${wbDays(tmp)||'日'}曜）には新しい範囲を入れません。遅れの取り戻しに使う日です。毎日入れたいときは、細かい設定の週バッファーを 0 にします。</small>`:''}")
 # C-1: "＋ 予定" is a special-day mark, not a task -> name it so
 rep('<button class="btn sm" data-addk="ev">＋ 予定</button>','<button class="btn sm" data-addk="ev">＋ 特別な日</button>')
 rep('<button class="btn sm" id="shAddEv">＋ 予定</button>','<button class="btn sm" id="shAddEv">＋ 特別な日</button>')
@@ -587,8 +587,9 @@ document.addEventListener('click',e=>{if(e.target.id!=='d_tomorrow')return;const
 // #28-2: overdue tasks can be moved to today in one go from the today list
 {const _rt=renderTasks;renderTasks=function(){_rt.apply(this,arguments);try{if(curList!=='today'||query)return;const od=st.tasks.filter(t=>isOverdue(t)&&(!t.repeat||t.repeat==='none'));if(!od.length)return;
   $('#taskList').insertAdjacentHTML('afterbegin',`<li class="grp" style="display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--pri1)"><span>期限切れ ${od.length}件</span><span style="display:flex;gap:6px"><button class="btn sm" data-odmv="0">まとめて今日へ</button><button class="btn sm" data-odmv="1">まとめて明日へ</button></span></li>`)}catch(x){}}}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-odmv]');if(!b)return;const od=st.tasks.filter(t=>isOverdue(t)&&(!t.repeat||t.repeat==='none'));if(!od.length)return;const snap=od.map(t=>[t,t.due]),nd=addDays(todayKey(),+b.dataset.odmv);
-  od.forEach(t=>{noteMiss(t,nd);t.due=nd});save();toast(`期限切れ ${od.length}件を${+b.dataset.odmv?'明日':'今日'}へ移しました`,'元に戻す',()=>{snap.forEach(([t,d])=>t.due=d);save()})});""")
+document.addEventListener('click',e=>{const b=e.target.closest('[data-odmv]');if(!b)return;const od=st.tasks.filter(t=>isOverdue(t)&&(!t.repeat||t.repeat==='none'));if(!od.length)return;const snap=od.map(t=>[t,t.due]),nd=addDays(todayKey(),+b.dataset.odmv),rv=lateRvN();
+  confirmBox(`期限切れのタスク ${od.length}件（${[...new Set(od.slice(0,3).map(t=>t.title))].join('・')}${od.length>3?' ほか':''}）を、${+b.dataset.odmv?'明日':'今日'}（${mdw(nd)}）へ移しますか？${rv?`\n遅れている復習 ${rv}件は動きません（復習の一覧から評価してください）。`:''}`,'移す',()=>{
+  od.forEach(t=>{noteMiss(t,nd);t.due=nd});save();toast(`期限切れ ${od.length}件を${+b.dataset.odmv?'明日':'今日'}へ移しました`,'元に戻す',()=>{snap.forEach(([t,d])=>t.due=d);save()})})});""")
 # #37-7: no "past deadline" toast while the year is still being typed (e.g. 0002-11-30)
 rep("if(e.target.id==='bp_target'&&e.target.value&&e.target.value<todayKey())toast(","if(e.target.id==='bp_target'&&e.target.value&&e.target.value<todayKey()&&+e.target.value.slice(0,4)>=new Date().getFullYear()-1)toast(")
 # #37-1: say which task went back to "not done", with undo
@@ -642,7 +643,7 @@ rep('<label class="f">教材<select id="${p}_book">','${tk?`<div class="muted" s
 rep("const id=k+'|'+g.k,op=tcOpenG.has(id),open=g.es.filter(e=>!e.done),dn=g.es.length-open.length;","const id=k+'|'+g.k,op=tcOpenG.has(id),open=g.es.filter(e=>!e.done),dn=g.es.length-open.length,cnt=open.filter(e=>!e.proj||e.repProj).length,pj=open.length-cnt;")
 rep("<span class=\"gl\">${esc(g.lb)} ${g.es.length}件${dn?`（済${dn}）`:''}","<span class=\"gl\">${esc(g.lb)} ${cnt}件${dn||pj?`（${[dn?'済'+dn:'',pj?'仮'+pj:''].filter(Boolean).join('・')}）`:''}")
 rep("<span class=\"gs\">${esc([...g.lb][0]||'')}${g.es.length}</span>","<span class=\"gs\">${esc([...g.lb][0]||'')}${cnt}</span>")
-rep("${real.length+reps.length+rts.length}件の予定","${[...real,...reps].filter(e=>!e.done).length+rts.filter(r=>!r.done).length}件の予定${(()=>{const n=es.filter(e=>e.done).length+rts.filter(r=>r.done).length;return n?`・済 ${n}`:''})()}")
+rep("${real.length+reps.length+rts.length}件の予定","${k<today?(()=>{const n=es.filter(e=>e.done).length+rts.filter(r=>r.done).length,m=ghostsOn(k,today).filter(g=>!g.lateDone).length;return `済 ${n}件${m?`・できなかった ${m}件（今日以降へ移しました）`:''}`})():`${[...real,...reps].filter(e=>!e.done).length+rts.filter(r=>!r.done).length}件の予定${(()=>{const n=es.filter(e=>e.done).length+rts.filter(r=>r.done).length;return n?`・済 ${n}`:''})()}`}")
 # the list footer counts the reviews shown in the list too
 rep("$('#listSum').innerHTML=(open.length?`<span>未完了 ${open.length} 件・","$('#listSum').innerHTML=(open.length||rvs.length?`<span>未完了 ${open.length+rvs.length} 件${rvs.length?`（うち復習 ${rvs.length}件）`:''}・")
 # "遅れている予定" = late tasks + late reviews everywhere (段取り already did this)
@@ -653,8 +654,6 @@ rep("<span>期限切れ ${od.length}件</span>","<span>期限切れ ${od.length}
 rep("cap=capOn(d),ld=loadOf(d,es),over=cap!=null&&ld>cap+1;","cap=capOn(d),ld=planMin(d,es),over=cap!=null&&ld>cap+1;")
 # a book measured in 分/時間: a range of minutes is that many minutes (was guessed as one pomodoro)
 rep("if(p&&b){const ri=rateInfo(b,rv?'r':'n');if(ri.v){","if(p&&b&&(b.unit==='分'||b.unit==='時間')&&(p.type==='range'||p.type==='amount')){const a=p.type==='range'?p.to-p.from+1:+p.amt||0;return {m:a*(b.unit==='時間'?60:1),est:false}}\n  if(p&&b){const ri=rateInfo(b,rv?'r':'n');if(ri.v){")
-# 段取り says which routines are not in its list
-rep("何時をメドに終えるかを自分で決めます（10分でOK）。自分で決めた1日は、振り回される1日よりストレスが少なく、はかどります。'}</p>","何時をメドに終えるかを自分で決めます（10分でOK）。自分で決めた1日は、振り回される1日よりストレスが少なく、はかどります。'}</p>${(()=>{const rs=routinesOn(day);return rs.length?`<p class=\"muted\" style=\"font-size:12px;margin:-4px 0 0\">定番の学習 ${rs.length}件（${esc(rs.map(r=>r.title).join('・'))}）は、この一覧には入りません（カレンダーと計画表に出ます）。</p>`:''})()}")
 rep("""/*@cloud*/""","""/*@cloud*/
 function lateRvN(){const t=todayKey();return (st.reviews||[]).filter(r=>!r.paused&&r.due&&r.due<t).length}""")
 # ---- break overrun never negative (#35 #37) ----
@@ -668,5 +667,47 @@ rep("""/*@cloud*/""","""/*@cloud*/
 function fixNegBreaks(){const now=Date.now(),mks=new Set();for(const mk in months)for(const s of months[mk]||[]){if(s&&s.k==='b'&&((+s.over||0)<0||(s.e&&s.s&&s.e<s.s))){s.over=Math.max(0,+s.over||0);s.pen=Math.max(0,+s.pen||0);if(s.e<s.s)s.e=s.s;s.u=now;mks.add(mk)}}mks.forEach(mk=>{try{saveMonth(mk)}catch(e){}});return mks.size}
 {const _ns=normSessions;normSessions=function(){_ns.apply(this,arguments);try{fixNegBreaks()}catch(e){}}}
 try{fixNegBreaks()}catch(e){}""")
+# ---- remaining bugs (#42 #47 #48 #49 #50) ----
+# #42-1: the 段取り end time says the late items are not in it
+rep("順に進めると最後は ${fmtClock(ends[ends.length-1])} ごろ</small>","順に進めると最後は ${fmtClock(ends[ends.length-1])} ごろ${late.length||lateRv?`（遅れている予定 ${late.length+lateRv}件の分は含みません）`:''}</small>")
+# #48-10: "○日分" counts days, not tasks (twice a day made it double)
+rep("${r.tasks.filter(t=>t.planKind!=='rv').length}日分","${new Set(r.tasks.filter(t=>t.planKind!=='rv').map(t=>t.due)).size}日分")
+# #48-9: the record card says the time is already recorded
+rep("<h2 style=\"font-size:${brk?'15px':'17px'}\">今回の学習を記録</h2>","<h2 style=\"font-size:${brk?'15px':'17px'}\">今回の学習を記録</h2><small class=\"muted\" style=\"display:block;flex-basis:100%\">勉強した時間は、集中が終わった時点で記録済みです。ここでは進んだ範囲やメモを足せます。</small>")
+# #49-11: the estimate shows even before any pomodoro was done
+rep("(t.done||t.est>1?`<span class=\"pom\" title=\"実績/見積ポモ\">${t.done}/${t.est}</span>`:'')","(t.est?`<span class=\"pom\" title=\"実績/見積ポモ\">${t.done}/${t.est}</span>`:'')")
+# #47-2: "ほか○件" counts like the day header (not done, not 仮)
+rep("const h=es.slice(0,lim).map(tcChipH).join('');return h+(es.length>lim?`<span class=\"cmore\">ほか${es.length-lim}件</span>`:'')}","const h=es.slice(0,lim).map(tcChipH).join(''),rest=es.slice(lim),rn=rest.filter(e=>!e.done&&(!e.proj||e.repProj)).length,rx=rest.length-rn;return h+(rest.length?`<span class=\"cmore\">ほか${rn}件${rx?`（済・仮 ${rx}）`:''}</span>`:'')}")
+# #42-4 / #50-12: reserve used past 100% is shown as "used up, N days over"
+rep("`進み具合 ${Math.round(x.p*100)}%・予備の消費 ${Math.round(x.c*100)}%","`進み具合 ${Math.round(x.p*100)}%・${x.c>1?`予備を使い切りました（${Math.max(0,x.used-x.len)||Math.round((x.c-1)*x.len)}日オーバー）`:`予備の消費 ${Math.round(x.c*100)}%`}")
+# #42-3 / #50-11: the card also shows what the plan actually gives per day
+rep("pi.tgt?`期限 ${md(pi.tgt)}${pi.need!=null&&pi.rem?`（残り÷期限までの学習日＝1日 ${pi.need===Infinity?'—':uAmt(b,pi.need)}）`:''}`:''","pi.tgt?`期限 ${md(pi.tgt)}${pi.need!=null&&pi.rem?`（残り÷期限までの学習日＝1日 ${pi.need===Infinity?'—':uAmt(b,pi.need)}）`:''}`:'',planPerDay(b)?`予定の割り振り 1日 約${planPerDay(b)}（予備日を除いた日で配っています）`:''")
+# #42-8: the timer tab does not reopen on the alarm page
+rep("let pane=LS.get('pane',T.kind);","let pane=LS.get('pane',T.kind);if(pane==='alarm')pane=T.kind;")
+# #48-8 / #50-10: say which focus length the remaining time uses
+rep("$('#todaySum').textContent=tl?`今日 残り ${tl} ポモ（約${fmtMin(tl*S.focus)}）`:'';","$('#todaySum').textContent=tl?`今日 残り ${tl} ポモ（約${fmtMin(tl*S.focus)}${S.focus!==25?`・集中${S.focus}分で換算`:''}）`:'';")
+rep("・残り見積 ${est} ポモ（約${fmtMin(est*S.focus)}）","・残り見積 ${est} ポモ（約${fmtMin(est*S.focus)}${S.focus!==25?`・いまの集中${S.focus}分で換算`:''}）")
+# #49-8: completing a future task asks first
+rep("function rowDone(t){if(!isCurTask(t)){toggleDone(t);return}","function rowDone(t){if(!isCurTask(t)){if(!t.completed&&t.due&&t.due>todayKey()&&(!t.repeat||t.repeat==='none')){confirmBox(`「${t.title}」は ${mdw(t.due)} の予定です。前倒しで完了にしますか？`,'完了にする',()=>toggleDone(t));return}toggleDone(t);return}")
+rep("""/*@cloud*/""","""/*@cloud*/
+// #49-12: the break-over bar sits under the header so the header buttons stay usable
+{const _rr=renderRing;renderRing=function(){_rr.apply(this,arguments);try{const hd=document.querySelector('header.top'),bar=$('#ringbar');if(hd&&bar)bar.style.setProperty('--rbTop',Math.max(0,Math.round(hd.getBoundingClientRect().bottom))+'px')}catch(e){}}}
+function wbDays(b){const ws=weekStart(addDays(todayKey(),7)),out=[];for(let i=0;i<7;i++){const d=addDays(ws,i);if(isWeekBuf(b,d))out.push(WD[k2d(d).getDay()])}return out.join('・')}
+function planPerDay(b){const t0=todayKey(),ts=st.tasks.filter(t=>t.source==='plan'&&t.planBook===b.id&&!t.completed&&t.due&&t.due>=t0&&t.planKind!=='rv'&&!t.bufFill&&t.plan);if(!ts.length)return '';const c={};ts.forEach(t=>{const p=t.plan;const a=p.type==='range'?p.to-p.from+1:p.type==='amount'?+p.amt||0:p.type==='units'?(p.ids||[]).length:0;if(a)c[t.due]=(c[t.due]||0)+a});const v=Object.values(c);if(!v.length)return '';const u=ts[0].plan.type==='units'?(b.unit&&b.unit!=='ページ'?b.unit:'単元'):b.unit;return Math.round(v.reduce((a,x)=>a+x,0)/v.length*10)/10+u}
+// #47-1: buffer contents that give way to a new task are reported
+{const _d=dropBufFill;dropBufFill=function(){const n=_d.apply(this,arguments);if(n)setTimeout(()=>toast(`ふつうの予定が入った日の「予備期間の中身」（総復習・解き直しなど）${n}件を外しました`),600);return n}}
+// #48-1/#48-2/#42-10: a finished book gets no more re-solve tasks; finishing every unit offers to mark the book done
+{const _sr=syncRetry;syncRetry=function(b){if(b&&b.status==='done'){const n0=st.tasks.length;st.tasks=st.tasks.filter(t=>!(t.source==='plan'&&t.planBook===b.id&&!t.completed&&t.plan&&t.plan.type==='retry'));return}return _sr.apply(this,arguments)}}
+{const _su=setUnitDone;setUnitDone=function(b,id,v){_su.apply(this,arguments);try{const us=bUnits(b);if(v&&us.length&&b.status!=='done'&&us.every(u=>unitDone(b,u.id)))setTimeout(()=>toast(`「${b.title}」の単元をすべて終えました！`,'完了にする',()=>{b.status='done';syncRetry(b);save();toast('本棚の「完了」に移しました。解き直しの予定も止めました')}),300)}catch(e){}}}
+// #48-1: finishing a re-solve task says where to record ○△×
+document.addEventListener('click',e=>{const a=e.target.closest('[data-act="done"],#d_done,#sp_done');if(!a)return;const li=a.closest('.tr'),id=li?li.dataset.id:detailId,t=id&&taskById(id);if(t&&t.plan&&t.plan.type==='retry'&&!t.completed)setTimeout(()=>{if(t.completed)toast('解き直した問題の○△×は、教材の詳細の「単元・問題」か、記録カードで入力できます')},400)},true);
+// #48-7 / #50-7: saving a plan that has no tasks yet offers to make them
+document.addEventListener('click',e=>{if(e.target.id!=='bp_save')return;const id=window.__bpId;setTimeout(()=>{const b=book(id);if(!b||!b.sched||isHand(b))return;if(!/計画を保存しました/.test(($('#toastMsg')||{}).textContent||''))return;if(st.tasks.some(t=>t.source==='plan'&&t.planBook===b.id&&!t.completed))return;if(!$('#modal').hidden)return;
+  const r=genBook(b,genStartDefault());if(r.err){toast('計画を保存しました。まだ予定は作っていません（'+r.err.replace(/<[^>]+>/g,'')+'）');return}confirmBox(`計画を保存しました。「${b.title}」の予定（${new Set(r.tasks.filter(t=>t.planKind!=='rv').map(t=>t.due)).size}日分）を今作りますか？`,'予定を作る',()=>regenBook(b,true))},150)});""")
+rep('.acctdlg .box{max-width:440px}','.ringbar:not(.mini){top:var(--rbTop,0px)}\n.acctdlg .box{max-width:440px}')
+# #48-4 / #50-2: each "達成" says what it counts (they count different things on purpose)
+rep("'今日の計画タスクを全部終える'","'今日の計画タスク（逆算で作った予定）を全部終える'")
+rep("<div>予定の達成 <b>${dn}/${n}</b>（${Math.round(dn/n*100)}%）","<div>予定の達成 <b>${dn}/${n}</b>（${Math.round(dn/n*100)}%）<small class=\"muted\">　計画で作ったタスク（できずに移した分も含む）</small>")
+rep("・予定の達成 ${wd}/${wt}（${Math.round(wd/wt*100)}%）","・予定の達成 ${wd}/${wt}（${Math.round(wd/wt*100)}%・今日までの予定。復習・定番を含み、遅れは含まない）")
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
