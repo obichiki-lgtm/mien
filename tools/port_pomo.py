@@ -546,7 +546,7 @@ rep("const n=k==='offshift'?shiftOffTasks(ov):offToBuf(ov);","let n=k==='offshif
 rep('<button data-of="shift">後ろへずらす<small>その教材の後ろの予定も順に1日ずつ送ります</small></button>','<button data-of="shift">後ろへずらす<small>その教材の後ろの予定も順に1日ずつ送ります。重なる復習も次の勉強日へ動かします</small></button>')
 # #28-1 / #30-6: before re-planning, say what is replaced (and overdue ones), and warn about very long days
 rep("$('#gn_go').onclick=()=>{const ids=$$('.gn_b').filter(c=>c.checked).map(c=>c.value);if(!ids.length){toast(Object.values(res).every(r=>r.err)?'どの教材も作れません。⚠ の「設定する」から直してください':'作る教材にチェックを入れてください');return}",
-"$('#gn_go').onclick=()=>{const ids=$$('.gn_b').filter(c=>c.checked).map(c=>c.value);if(!ids.length){toast(Object.values(res).every(r=>r.err)?'どの教材も作れません。⚠ の「設定する」から直してください':'作る教材にチェックを入れてください');return}\n      if(!window.__gnOk){const today=todayKey(),oldAll=st.tasks.filter(t=>t.source==='plan'&&ids.includes(t.planBook)&&!t.completed),lateN=oldAll.filter(t=>t.due&&t.due<today).length,per={};ids.forEach(id=>((res[id]&&res[id].tasks)||[]).forEach(t=>{if(t.due)per[t.due]=(per[t.due]||0)+taskMin(t)}));const big=Object.entries(per).filter(([d,m])=>m>=360).sort((a,c)=>c[1]-a[1]);\n        if(oldAll.length||big.length){confirmBox(`${oldAll.length?`終わっていない計画のタスク ${oldAll.length}件${lateN?`（うち期限切れ ${lateN}件）`:''}を、新しい予定に置き換えます。${lateN?'期限切れの分の範囲は、今日以降の予定にまとめて配り直します（1件ずつ移すのではないので、件数は減ることがあります）。もとの日には「できなかった」の印が残ります。':''}`:''}${big.length?`1日 約${fmtHM(big[0][1])}になる日があります（${big.slice(0,3).map(([d])=>md(d)).join('・')}${big.length>3?' ほか':''}）。教材の「1日の上限」や曜日、使える時間を見直すと減らせます。`:''}このまま作りますか？`,'作る',()=>{window.__gnOk=1;try{$('#gn_go').click()}finally{window.__gnOk=0}});return}}")
+"$('#gn_go').onclick=()=>{const ids=$$('.gn_b').filter(c=>c.checked).map(c=>c.value);if(!ids.length){toast(Object.values(res).every(r=>r.err)?'どの教材も作れません。⚠ の「設定する」から直してください':'作る教材にチェックを入れてください');return}\n      if(!window.__gnOk){const today=todayKey(),oldAll=st.tasks.filter(t=>t.source==='plan'&&ids.includes(t.planBook)&&!t.completed),lateN=oldAll.filter(t=>t.due&&t.due<today).length,per={};ids.forEach(id=>((res[id]&&res[id].tasks)||[]).forEach(t=>{if(t.due)per[t.due]=(per[t.due]||0)+taskMin(t)}));const big=Object.entries(per).filter(([d,m])=>m>=360).sort((a,c)=>c[1]-a[1]);\n        if(oldAll.length||big.length){confirmBox(`${oldAll.length?`終わっていない計画のタスク ${oldAll.length}件${lateN?`（うち期限切れ ${lateN}件）`:''}を、新しい予定に置き換えます。${lateN?'期限切れの分の範囲は、今日以降の予定にまとめて配り直します（1件ずつ移すのではないので、件数は減ることがあります）。もとの日には「できなかった」の印が残ります。':''}${oldAll.filter(t=>t.due===today).length?`今日の分 ${oldAll.filter(t=>t.due===today).length}件は、印を残さずに置き換えます。`:''}`:''}${big.length?`1日 約${fmtHM(big[0][1])}になる日があります（${big.slice(0,3).map(([d])=>md(d)).join('・')}${big.length>3?' ほか':''}）。教材の「1日の上限」や曜日、使える時間を見直すと減らせます。`:''}このまま作りますか？`,'作る',()=>{window.__gnOk=1;try{$('#gn_go').click()}finally{window.__gnOk=0}});return}}")
 rep("""/*@cloud*/""","""/*@cloud*/
 const _dt={k:-1,m:new Map()};
 function doneTo(b){const k=st.updatedAt||0;if(_dt.k!==k){_dt.k=k;_dt.m=new Map()}if(_dt.m.has(b.id))return _dt.m.get(b.id);
@@ -574,7 +574,7 @@ rep('<p style="margin:0;font-size:13.5px" id="rvdQ">どのくらい覚えてい�
 # #28-6: "明日へ" next to "日付を変える" in task details
 rep('<button class="btn" id="d_movejump" type="button">日付を変える</button>','<button class="btn" id="d_tomorrow" type="button">明日へ</button><button class="btn" id="d_movejump" type="button">日付を変える</button>')
 # #32-5 / #28-3: what the day's achievement count includes
-rep("d===today?[act?`実績 ${fmtHM(act)}`:'実績 0:00',tot?`達成 ${dn}/${tot}`:''","d===today?[act?`実績 ${fmtHM(act)}`:'実績 0:00',tot?`達成 ${dn}/${tot}（今日の分・遅れは含まない）`:''")
+rep("d===today?[act?`実績 ${fmtHM(act)}`:'実績 0:00',tot?`達成 ${dn}/${tot}`:''","d===today?[act?`実績 ${fmtHM(act)}`:'実績 0:00',tot?`達成 ${dn}/${tot}（今日の分。復習・定番を含み、遅れは含まない）`:''")
 rep("""/*@cloud*/""","""/*@cloud*/
 function lateTxt(b,r){const real=bookTarget(b);if(real&&r.tgt&&r.tgt<real)return `予備日を除いた ${md(r.tgt)} までに終わりません（期限 ${md(real)} には${r.end&&r.end<=real?'間に合います':'間に合いません'}）`;return `期限 ${md(r.tgt||real)} に間に合いません`}
 // #31-2: a deadline in the past is pointed out before saving
@@ -709,5 +709,25 @@ rep('.acctdlg .box{max-width:440px}','.ringbar:not(.mini){top:var(--rbTop,0px)}\
 rep("'今日の計画タスクを全部終える'","'今日の計画タスク（逆算で作った予定）を全部終える'")
 rep("<div>予定の達成 <b>${dn}/${n}</b>（${Math.round(dn/n*100)}%）","<div>予定の達成 <b>${dn}/${n}</b>（${Math.round(dn/n*100)}%）<small class=\"muted\">　計画で作ったタスク（できずに移した分も含む）</small>")
 rep("・予定の達成 ${wd}/${wt}（${Math.round(wd/wt*100)}%）","・予定の達成 ${wd}/${wt}（${Math.round(wd/wt*100)}%・今日までの予定。復習・定番を含み、遅れは含まない）")
+# ---- feedback #52 ----
+# 6: "期限までに○周" reviews always cover every page (rounding left the last pages out of the 2nd lap)
+rep("return {tasks:out,desc:desc+`・学習する日1日あたり 約${Math.round(per*10)/10}${b.unit}`,per,end:out.length?out[out.length-1].due:null}}","if(rv.lapMode==='laps'&&out.length){let need=len*(+rv.laps||1)-out.reduce((s2,t)=>s2+(t.plan.type==='range'?t.plan.to-t.plan.from+1:+t.plan.amt||0),0),g=0;const lt=out[out.length-1];while(need>0&&g<20){g++;const from=cur,to=Math.min(z,cur+need-1);const t=newTask({kind:'study',book:b.id,subject:b.subject,autoTitle:true,due:lt.due,cycle:'no',source:'plan',planBook:b.id,planKind:'rv',pri:+sc.pri||0,plan:b.mode==='range'?{type:'range',from,to}:{type:'amount',amt:to-from+1},est:mpu?Math.max(1,Math.round((to-from+1)*mpu/S.focus)):1});t.title='（復習）'+b.title+' '+pre+(from===to?from:from+'〜'+to)+u+(lap>1?`（${lap}周目）`:'');out.push(t);need-=to-from+1;cur=to+1;if(cur>z){cur=a;lap++}}}\n  return {tasks:out,desc:desc+`・学習する日1日あたり 約${Math.round(per*10)/10}${b.unit}`,per,end:out.length?out[out.length-1].due:null}}")
+# 13: the per-day amount in previews is an average
+rep("function perLbl(b,r){const t=perTxt(b,r);return /日に/.test(t)?t:'1日 '+t}","function perLbl(b,r){const t=perTxt(b,r);return /日に/.test(t)?t:'1日 '+(/^約|〜/.test(t)?t:'約'+t)}")
+# 7: what the planner's day time includes
+rep("<span class=\"pcap${over?' over':''}\">","<span class=\"pcap${over?' over':''}\" title=\"この日の予定の合計（学習・復習・定番・タスクの見積。仮の予定は除く）\">")
+# 10: a goal without a date cannot give the plan a deadline
+rep("期限（空欄なら目標の日付を使います）<input type=\"date\" id=\"bp_target\" value=\"${sc.target||''}\"></label>","期限（空欄なら目標の日付を使います）<input type=\"date\" id=\"bp_target\" value=\"${sc.target||''}\">${(()=>{const g=bookGoal(b);return !sc.target&&g&&!g.due?`<small style=\"color:var(--pri1)\">結んだ目標「${esc(g.title)}」には日付がないので、期限を入れてください</small>`:''})()}</label>")
+# 4: select all / none when re-planning
+rep("<div id=\"gn_list\"></div>","<div style=\"display:flex;gap:6px;margin:2px 0 4px\"><button type=\"button\" class=\"btn sm\" id=\"gn_all\">すべて選ぶ</button><button type=\"button\" class=\"btn sm\" id=\"gn_none\">すべて外す</button></div><div id=\"gn_list\"></div>")
+rep("""/*@cloud*/""","""/*@cloud*/
+document.addEventListener('click',e=>{const id=e.target.id;if(id!=='gn_all'&&id!=='gn_none')return;const cs=$$('.gn_b').filter(c=>!c.disabled);cs.forEach(c=>c.checked=id==='gn_all');if(cs[0])cs[0].dispatchEvent(new Event('change',{bubbles:true}))});
+// 5: a daily cap at or above the whole amount has no effect — say so
+document.addEventListener('input',e=>{if(e.target.id!=='bp_max'&&e.target.id!=='bp_total')return;capNote()});
+function capNote(){const mx=$('#bp_max');if(!mx)return;let n=$('#bp_capn');if(!n){n=document.createElement('small');n.id='bp_capn';n.style.color='var(--pri1)';n.style.display='block';mx.closest('label')&&mx.closest('label').appendChild(n)}const b=book(window.__bpId),tot=+(($('#bp_total')||{}).value)||(b&&+b.total)||0,v=+mx.value||0;n.textContent=v&&tot&&v>=tot?`1日の上限（${v}）が全体の量（${tot}）以上なので、上限は効きません。期限から逆算した量で配ります`:''}
+new MutationObserver(()=>{const mx=$('#bp_max');if(mx&&!mx.dataset.capn){mx.dataset.capn='1';capNote()}}).observe($('#drawer'),{childList:true});
+// 8/9/11: if a button was redrawn between press and release (e.g. a field's change redrew the screen), press the new one
+document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('button[id]');window.__pdn=b&&!b.disabled?{el:b,id:b.id,t:Date.now()}:null},true);
+document.addEventListener('pointerup',e=>{const pd=window.__pdn;window.__pdn=null;if(!pd||Date.now()-pd.t>1500||document.contains(pd.el))return;const n=document.getElementById(pd.id);const hit=document.elementFromPoint(e.clientX,e.clientY);if(n&&!n.disabled&&hit&&(hit===n||n.contains(hit)))setTimeout(()=>n.click(),0)},true);""")
 open(dst, 'w', encoding='utf-8').write(h)
 print('ok', len(h))
